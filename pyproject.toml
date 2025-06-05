@@ -1,0 +1,32 @@
+[tool.poetry]
+name = "convolution-patterns"
+version = "0.1.0"
+description = "CNN-based chart pattern recognition for the Convolution Strategy using indicator images"
+authors = ["kjpou1"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "convolution_patterns", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.12"
+numpy = "*"
+pandas = "*"
+python-dotenv = "^1.1.0"
+tensorflow = "^2.19.0"
+scikit-learn = "^1.6.1"
+opencv-python = "^4.11.0.86"
+matplotlib = "^3.10.3"
+seaborn = "^0.13.2"
+
+
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
+flake8 = "^7.2.0"
+jupyter = "^1.1.1"
+ipykernel = "^6.29.5"
+pytest = "^8.4.0"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
