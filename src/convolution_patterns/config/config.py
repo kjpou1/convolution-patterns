@@ -11,6 +11,10 @@ from convolution_patterns.utils.path_utils import (
 )
 
 
+def _was_explicit(args, field: str) -> bool:
+    return hasattr(args, "_explicit_args") and field in args._explicit_args
+
+
 class Config(metaclass=SingletonMeta):
     _is_initialized = False
 
@@ -45,6 +49,19 @@ class Config(metaclass=SingletonMeta):
         self.REPORTS_DIR = os.path.join(self.BASE_DIR, "reports")
         self.PROCESSED_DATA_DIR = os.path.join(self.BASE_DIR, "data", "processed")
 
+        self._staging_dir = os.getenv("STAGING_DIR", None)
+        self._preserve_raw = str(os.getenv("PRESERVE_RAW", "true")).strip().lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
+        self._label_mode = os.getenv("LABEL_MODE", "pattern_only")
+        self._split_ratios = [
+            int(x) for x in os.getenv("SPLIT_RATIOS", "70,15,15").split(",")
+        ]
+        self._deterministic = os.getenv("DETERMINISTIC", "true").lower() == "true"
+        self._random_seed = int(os.getenv("RANDOM_SEED", "42"))
+
         self._ensure_directories_exist()
         Config._is_initialized = True
 
@@ -59,6 +76,35 @@ class Config(metaclass=SingletonMeta):
                 self.HISTORY_DIR,
             ]
         )
+
+    def apply_cli_overrides(self, args):
+        if _was_explicit(args, "staging_dir"):
+            print(f"[Config] Overriding 'staging_dir' from CLI: {args.staging_dir}")
+            self.staging_dir = args.staging_dir
+
+        if _was_explicit(args, "preserve_raw"):
+            print(
+                f"[Config] Overriding 'preserve_raw' from CLI: {self._preserve_raw} → {args.preserve_raw}"
+            )
+            self.preserve_raw = args.preserve_raw
+
+        if _was_explicit(args, "label_mode"):
+            print(
+                f"[Config] Overriding 'label_mode' from CLI: {self._label_mode} → {args.label_mode}"
+            )
+            self.label_mode = args.label_mode
+
+        if _was_explicit(args, "split_ratios"):
+            print(
+                f"[Config] Overriding 'split_ratios' from CLI: {self._split_ratios} → {args.split_ratios}"
+            )
+            self.split_ratios = args.split_ratios
+
+        if _was_explicit(args, "random_seed"):
+            print(
+                f"[Config] Overriding 'random_seed' from CLI: {self._random_seed} → {args.random_seed}"
+            )
+            self.random_seed = args.random_seed
 
     def load_from_yaml(self, path: str):
         """
@@ -77,6 +123,36 @@ class Config(metaclass=SingletonMeta):
         if "debug" in data:
             print(f"[Config] Overriding 'debug': {self._debug} → {data['debug']}")
             self.debug = data["debug"]
+
+        if "staging_dir" in data:
+            print(
+                f"[Config] Overriding 'staging_dir': {self._staging_dir} → {data['staging_dir']}"
+            )
+            self.staging_dir = data["staging_dir"]
+
+        if "preserve_raw" in data:
+            print(
+                f"[Config] Overriding 'preserve_raw': {self._preserve_raw} → {data['preserve_raw']}"
+            )
+            self.preserve_raw = data["preserve_raw"]
+
+        if "label_mode" in data:
+            print(
+                f"[Config] Overriding 'label_mode': {self._label_mode} → {data['label_mode']}"
+            )
+            self.label_mode = data["label_mode"]
+
+        if "split_ratios" in data:
+            print(
+                f"[Config] Overriding 'split_ratios': {self._split_ratios} → {data['split_ratios']}"
+            )
+            self.split_ratios = data["split_ratios"]
+
+        if "random_seed" in data:
+            print(
+                f"[Config] Overriding 'random_seed': {self._random_seed} → {data['random_seed']}"
+            )
+            self.random_seed = data["random_seed"]
 
     @property
     def config_path(self):
@@ -98,7 +174,73 @@ class Config(metaclass=SingletonMeta):
             raise ValueError("debug must be a boolean.")
         self._debug = value
 
-    def _resolve_path(self, val: str) -> Optional[str]:
+    @property
+    def staging_dir(self):
+        return self._resolve_path(self._staging_dir)
+
+    @staging_dir.setter
+    def staging_dir(self, value):
+        if not isinstance(value, str):
+            raise ValueError("staging_dir must be a string.")
+        self._staging_dir = value
+
+    @property
+    def preserve_raw(self):
+        return self._preserve_raw
+
+    @preserve_raw.setter
+    def preserve_raw(self, value):
+        if not isinstance(value, bool):
+            raise ValueError("preserve_raw must be a boolean.")
+        self._preserve_raw = value
+
+    @property
+    def label_mode(self):
+        return self._label_mode
+
+    @label_mode.setter
+    def label_mode(self, value):
+        if value not in ["pattern_only", "instrument_specific"]:
+            raise ValueError(
+                "label_mode must be 'pattern_only' or 'instrument_specific'."
+            )
+        self._label_mode = value
+
+    @property
+    def split_ratios(self):
+        return self._split_ratios
+
+    @split_ratios.setter
+    def split_ratios(self, value):
+        if (
+            not isinstance(value, list)
+            or len(value) != 3
+            or not all(isinstance(x, int) for x in value)
+        ):
+            raise ValueError("split_ratios must be a list of three integers.")
+        self._split_ratios = value
+
+    @property
+    def deterministic(self) -> bool:
+        return self._deterministic
+
+    @deterministic.setter
+    def deterministic(self, value: bool):
+        if not isinstance(value, bool):
+            raise ValueError("deterministic must be a boolean.")
+        self._deterministic = value
+
+    @property
+    def random_seed(self):
+        return self._random_seed
+
+    @random_seed.setter
+    def random_seed(self, value):
+        if not isinstance(value, int):
+            raise ValueError("random_seed must be an integer.")
+        self._random_seed = value
+
+    def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:
             return None
         if os.path.isabs(val):

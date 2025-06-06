@@ -1,0 +1,6 @@
+staging_dir: ./lc_staging
+preserve_raw: yes
+label_mode: pattern_only
+split_ratios: [80, 10, 10]
+random_seed: 123
+debug: true

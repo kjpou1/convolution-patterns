@@ -18,6 +18,20 @@
       "program": "launch_host.py",
       "args": [],
       "console": "integratedTerminal"
+    },
+    {
+      "name": "Ingest",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "launch_host.py",
+      "args": [
+        "ingest",
+        "--config",
+        "configs/ingest_config.yaml",
+        "--no-preserve-raw",
+        "--random-seed",
+        "1337"
+      ]
     }
   ]
 }

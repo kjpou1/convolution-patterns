@@ -30,6 +30,8 @@ class Host:
             self.config.config_path = args.config
             self.config.load_from_yaml(args.config)
 
+        self.config.apply_cli_overrides(args)
+
     def run(self):
         """
         Synchronously run the asynchronous run_async method.
