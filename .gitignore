@@ -193,6 +193,8 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# artifacts 
+artifacts
 
 # image staging files
 lc_classifier
