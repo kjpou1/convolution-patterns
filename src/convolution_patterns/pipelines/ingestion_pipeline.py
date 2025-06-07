@@ -6,6 +6,9 @@ from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.services.ingestion_service import IngestionService
 
+from src.convolution_patterns.utils.path_utils import is_raw_snapshot_empty
+
+
 logging = LoggerManager.get_logger(__name__)
 
 
@@ -17,6 +20,7 @@ class IngestionPipeline:
 
     def __init__(self):
         self.config = Config()
+        self.raw_data_dir = self.config.RAW_DATA_DIR
         self.ingestion_service = IngestionService()
 
         logging.info("📦 Initialized IngestionPipeline with config:")
@@ -27,33 +31,30 @@ class IngestionPipeline:
         logging.info(f"    random_seed: {self.config.random_seed}")
 
     def run_pipeline(self):
-        """
-        Executes the full ingestion pipeline:
-        1. Optional raw snapshot
-        2. Stratified train/val/test split
-        3. Processed directory structure generation
-        4. Metadata CSV creation
-        """
         try:
             logging.info("🚀 Starting ingestion pipeline.")
 
-            # Step 1: Optional raw copy
-            if self.config.preserve_raw:
+            
+            raw_empty = is_raw_snapshot_empty(self.raw_data_dir)
+
+            if not self.config.preserve_raw or raw_empty:
+                if self.config.preserve_raw and raw_empty:
+                    logging.warning("⚠️ Raw snapshot exists but is empty. Recopying from staging...")
+
                 logging.info("📂 Copying raw images from staging → raw snapshot")
                 self.ingestion_service.copy_raw_images()
                 logging.info("✅ Raw snapshot complete.")
+            else:
+                logging.info("🛑 Skipping raw copy. Using existing raw snapshot.")
 
-            # Step 2: Load, parse, and split
             logging.info("🔄 Parsing directory and splitting dataset.")
             split_result = self.ingestion_service.split_dataset()
             logging.info("✅ Dataset split into train/val/test.")
 
-            # Step 3: Copy to processed layout
             logging.info("📁 Writing processed dataset to artifacts/data/processed/")
             self.ingestion_service.write_processed_dataset(split_result)
             logging.info("✅ Processed dataset saved.")
 
-            # Step 4: Save metadata
             metadata_path = self.ingestion_service.write_metadata(split_result)
             logging.info(f"🧾 Metadata CSV saved: {metadata_path}")
 

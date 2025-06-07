@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Union
 
 def get_project_root(marker_filename="pyproject.toml", fallback_levels=3):
     """
@@ -41,3 +43,11 @@ def ensure_all_dirs_exist(paths: list[str], create: bool = True, verbose: bool =
     for path in paths:
         ensure_dir_exists(path, create=create, verbose=verbose, logger=logger)
     
+
+def is_raw_snapshot_empty(raw_dir: Union[str, Path]) -> bool:
+    """
+    Returns True if the raw directory does not contain any image files.
+    Accepts either a Path or string input.
+    """
+    raw_path = Path(raw_dir) if isinstance(raw_dir, str) else raw_dir
+    return not any(raw_path.glob("**/*.png"))  # Extend to .jpg if needed

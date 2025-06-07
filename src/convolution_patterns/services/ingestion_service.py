@@ -8,6 +8,8 @@ import pandas as pd
 from convolution_patterns.config.config import Config
 from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
+from convolution_patterns.services.splitter_service import SplitterService
+
 
 logging = LoggerManager.get_logger(__name__)
 
@@ -25,11 +27,7 @@ class IngestionService:
             raise ValueError("Missing staging_dir in configuration.")
         
         self.staging_dir = self.config.staging_dir
-
-        self.raw_data_path = self.config.RAW_DATA_DIR
-        if not os.path.exists(self.raw_data_path):
-            raise FileNotFoundError(f"Raw data directory not found: {self.raw_data_path}")
-
+        self.raw_data_dir = self.config.RAW_DATA_DIR
 
 
     def copy_raw_images(self):
@@ -40,24 +38,32 @@ class IngestionService:
             if not os.path.exists(self.staging_dir):
                 raise FileNotFoundError(f"Staging directory not found or not set: {self.config.staging_dir}")
 
-            if os.path.exists(self.raw_data_path):
-                shutil.rmtree(self.raw_data_path)
-            shutil.copytree(self.staging_dir, self.raw_data_path)
-            logging.info(f"Copied raw images to: {self.raw_data_path}")
+            if os.path.exists(self.raw_data_dir):
+                shutil.rmtree(self.raw_data_dir)
+            shutil.copytree(self.staging_dir, self.raw_data_dir)
+            logging.info(f"Copied raw images to: {self.raw_data_dir}")
         except Exception as e:
             raise CustomException(e, sys) from e
 
     def split_dataset(self):
         """
-        Loads image paths and splits them into train/val/test groups by pattern type.
+        Loads image paths and performs stratified split into train/val/test using SplitterService.
 
         Returns:
             dict: Keys 'train', 'val', 'test' each mapped to a list of image record dicts.
         """
         try:
+
+            if not os.path.exists(self.raw_data_dir):
+                raise FileNotFoundError(
+                    f"Raw data directory not found: {self.raw_data_dir}. "
+                    "Did you forget to run copy_raw_images()?"
+                )
+
+
             records = []
-            for instrument in os.listdir(self.raw_data_path):
-                instrument_path = os.path.join(self.staging_dir, instrument)
+            for instrument in os.listdir(self.raw_data_dir):
+                instrument_path = os.path.join(self.raw_data_dir, instrument)
                 if not os.path.isdir(instrument_path):
                     continue
                 for pattern_type in os.listdir(instrument_path):
@@ -73,31 +79,15 @@ class IngestionService:
                                 "source_path": os.path.join(pattern_path, filename),
                             })
 
-            random.seed(self.config.random_seed)
-            random.shuffle(records)
-
-            # Stratified by pattern_type
-            df = pd.DataFrame(records)
-
-            if df.empty:
+            if not records:
                 raise ValueError("No image records found for ingestion. Ensure the staging/raw directory is populated.")
 
-            if "pattern_type" not in df.columns:
-                raise ValueError("Missing 'pattern_type' in image records. Check directory structure.")
-            
-            grouped = df.groupby("pattern_type", group_keys=False)
-            splits = {"train": [], "val": [], "test": []}
+            splitter = SplitterService(
+                split_ratios=self.config.split_ratios,
+                seed=self.config.random_seed
+            )
+            return splitter.split(records)
 
-            for _, group in grouped:
-                n = len(group)
-                train_end = int(self.config.split_ratios[0] / 100 * n)
-                val_end = train_end + int(self.config.split_ratios[1] / 100 * n)
-
-                splits["train"].extend(group.iloc[:train_end].to_dict("records"))
-                splits["val"].extend(group.iloc[train_end:val_end].to_dict("records"))
-                splits["test"].extend(group.iloc[val_end:].to_dict("records"))
-
-            return splits
         except Exception as e:
             raise CustomException(e, sys) from e
 
@@ -106,8 +96,8 @@ class IngestionService:
         Copies split images to processed/{train,val,test}/instrument/pattern_type folders.
         """
         try:
-            for split_name, items in split_result.items():
-                for record in items:
+            for split_name, df in split_result.items():
+                for record in df.to_dict(orient="records"):
                     dst_dir = os.path.join(
                         self.config.PROCESSED_DATA_DIR,
                         split_name,
@@ -126,8 +116,9 @@ class IngestionService:
         """
         try:
             all_records = []
-            for split_name, records in split_result.items():
-                for rec in records:
+            for split_name, df in split_result.items():
+                # Convert each row to a dict and add 'split' key
+                for rec in df.to_dict(orient="records"):
                     rec["split"] = split_name
                     all_records.append(rec)
 
@@ -138,3 +129,4 @@ class IngestionService:
             return metadata_path
         except Exception as e:
             raise CustomException(e, sys) from e
+
