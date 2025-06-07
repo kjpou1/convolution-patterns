@@ -5,6 +5,7 @@ from convolution_patterns.config.config import Config
 from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.models.command_line_args import CommandLineArgs
+from convolution_patterns.services.ingestion_service import IngestionService
 
 logging = LoggerManager.get_logger(__name__)
 
@@ -70,7 +71,25 @@ class Host:
 
     async def run_ingestion(self):
         """
-        Run the supervised ingestion pipeline from CSV input to processed train/val/test outputs.
+        Run the ingestion pipeline from raw images to processed split outputs and metadata.
         """
-        logging.info("Initializing ingestion pipeline...")
-        pass
+        try:
+            logging.info("📦 Starting ingestion service...")
+            service = IngestionService()
+
+            if self.config.preserve_raw:
+                logging.info("🗂️ Copying raw image snapshot to artifacts/data/raw...")
+                service.copy_raw_images()
+
+            logging.info("🔀 Performing stratified train/val/test split...")
+            split_result = service.split_dataset()
+
+            logging.info("📁 Writing processed split images to artifacts/data/processed...")
+            service.write_processed_dataset(split_result)
+
+            logging.info("📝 Saving metadata CSV...")
+            metadata_path = service.write_metadata(split_result)
+            logging.info(f"✅ Metadata saved at: {metadata_path}")
+
+        except Exception as e:
+            raise CustomException(e)
