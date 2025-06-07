@@ -7,6 +7,9 @@ license = "MIT"
 readme = "README.md"
 packages = [{ include = "convolution_patterns", from = "src" }]
 
+[tool.poetry.scripts]
+patterncli = "launch_host:launch"
+
 [tool.poetry.dependencies]
 python = ">=3.12"
 numpy = "*"
