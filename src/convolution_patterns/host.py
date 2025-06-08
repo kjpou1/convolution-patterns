@@ -6,6 +6,7 @@ from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.models.command_line_args import CommandLineArgs
 from convolution_patterns.pipelines.ingestion_pipeline import IngestionPipeline
+from convolution_patterns.pipelines.train_pipeline import TrainPipeline
 
 
 logging = LoggerManager.get_logger(__name__)
@@ -55,11 +56,12 @@ class Host:
                 logging.info("Executing data ingestion workflow.")
                 await self.run_ingestion()
 
+            elif self.args.command == "train":
+                logging.info("🧠 Executing model training workflow.")
+                await self.run_training()
             else:
                 logging.error("No valid subcommand provided.")
-                raise ValueError(
-                    "Please specify a valid subcommand: 'ingest', 'embed', or 'cluster'."
-                )
+                raise ValueError("Please specify a valid subcommand: 'ingest' or 'train'.")
 
         except CustomException as e:
             logging.error("A custom error occurred during host operations: %s", e)
@@ -82,6 +84,21 @@ class Host:
             results = pipeline.run_pipeline()
 
             logging.info(f"✅ Ingestion completed with metadata path: {results['metadata_path']}")
+
+        except Exception as e:
+            raise CustomException(e)
+
+    async def run_training(self):
+        """
+        Run the full model training pipeline from datasets to model fitting.
+        """
+        try:
+            logging.info("🛠️  Initializing training pipeline...")
+
+            pipeline = TrainPipeline()
+            pipeline.run()
+
+            logging.info("✅ Model training completed successfully.")
 
         except Exception as e:
             raise CustomException(e)

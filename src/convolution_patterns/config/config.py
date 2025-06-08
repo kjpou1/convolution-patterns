@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, cast
 
 import yaml
 from dotenv import load_dotenv
@@ -62,6 +62,21 @@ class Config(metaclass=SingletonMeta):
         self._deterministic = os.getenv("DETERMINISTIC", "true").lower() == "true"
         self._random_seed = int(os.getenv("RANDOM_SEED", "42"))
 
+        img_vals = os.getenv("IMAGE_SIZE", "224,224").split(",")
+        if len(img_vals) != 2:
+            raise ValueError("IMAGE_SIZE must contain exactly two comma-separated values")
+        self._image_size: tuple[int, int] = (int(img_vals[0]), int(img_vals[1]))
+
+        # Add check to enforce it's exactly 2
+        if len(self._image_size) != 2:
+            raise ValueError("IMAGE_SIZE must contain exactly two integers")
+            
+        self._batch_size = int(os.getenv("BATCH_SIZE", "32"))
+
+        self._epochs = int(os.getenv("EPOCHS", "10"))
+
+
+
         self._ensure_directories_exist()
         Config._is_initialized = True
 
@@ -105,6 +120,14 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'random_seed' from CLI: {self._random_seed} → {args.random_seed}"
             )
             self.random_seed = args.random_seed
+        if _was_explicit(args, "image_size"):
+            print(f"[Config] Overriding 'image_size' from CLI: {args.image_size}")
+            self.image_size = args.image_size
+
+        if _was_explicit(args, "batch_size"):
+            print(f"[Config] Overriding 'batch_size' from CLI: {args.batch_size}")
+            self.batch_size = args.batch_size
+
 
     def load_from_yaml(self, path: str):
         """
@@ -153,6 +176,28 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'random_seed': {self._random_seed} → {data['random_seed']}"
             )
             self.random_seed = data["random_seed"]
+
+        if "image_size" in data:
+            val = data["image_size"]
+            if not isinstance(val, (list, tuple)) or len(val) != 2 or not all(isinstance(x, int) for x in val):
+                raise ValueError("image_size from YAML must be a list or tuple of two integers.")
+            print(f"[Config] Overriding 'image_size': {self._image_size} → {val}")
+            self.image_size = val
+
+        if "batch_size" in data:
+            val = data["batch_size"]
+            if not isinstance(val, int):
+                raise ValueError("batch_size from YAML must be an integer.")
+            print(f"[Config] Overriding 'batch_size': {self._batch_size} → {val}")
+            self.batch_size = val
+
+        if "epochs" in data:
+            val = data["epochs"]
+            if not isinstance(val, int):
+                raise ValueError("epochs from YAML must be an integer.")
+            print(f"[Config] Overriding 'epochs': {self._epochs} → {val}")
+            self.epochs = val
+
 
     @property
     def config_path(self):
@@ -239,6 +284,43 @@ class Config(metaclass=SingletonMeta):
         if not isinstance(value, int):
             raise ValueError("random_seed must be an integer.")
         self._random_seed = value
+
+    @property
+    def image_size(self) -> tuple[int, int]:
+        return cast(tuple[int, int], self._image_size)
+
+    @image_size.setter
+    def image_size(self, value):
+        if (
+            not isinstance(value, (list, tuple)) or
+            len(value) != 2 or
+            not all(isinstance(x, int) for x in value)
+        ):
+            raise ValueError("image_size must be a tuple of exactly two integers.")
+        self._image_size = (int(value[0]), int(value[1]))
+
+
+    @property
+    def batch_size(self) -> int:
+        return self._batch_size
+
+    @batch_size.setter
+    def batch_size(self, value):
+        if not isinstance(value, int):
+            raise ValueError("batch_size must be an integer.")
+        self._batch_size = value
+
+        @property
+        def epochs(self) -> int:
+            return self._epochs
+
+        @epochs.setter
+        def epochs(self, value):
+            if not isinstance(value, int):
+                raise ValueError("epochs must be an integer.")
+            self._epochs = value
+
+
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:

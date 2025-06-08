@@ -1,0 +1,26 @@
+# ⚙️ Training configuration for Convolution CV
+debug: true
+
+# Where raw images were staged (used to infer label set or for debug)
+staging_dir: ./lc_classifier/lc_staging
+
+# Whether to preserve raw copy to artifacts/data/raw/
+preserve_raw: true
+
+# Labeling strategy: 'pattern_only' or 'instrument_specific'
+label_mode: pattern_only
+
+# Train/val/test split ratios
+split_ratios: [80, 10, 10]
+
+# Random seed for reproducibility
+random_seed: 1337
+
+# Image size for resizing input data
+image_size: [224, 224]
+
+# Batch size for training and validation
+batch_size: 32
+
+# Number of training epochs
+epochs: 10

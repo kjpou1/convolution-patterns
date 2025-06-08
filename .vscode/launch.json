@@ -32,6 +32,17 @@
         "--random-seed",
         "1337"
       ]
+    },
+    {
+      "name": "Train",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "launch_host.py",
+      "args": [
+        "train",
+        "--config",
+        "configs/train_config.yaml",
+      ]
     }
   ]
 }

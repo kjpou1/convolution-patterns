@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 
 
 @dataclass
@@ -28,3 +28,9 @@ class CommandLineArgs:
     )  # Train/val/test split
     preserve_raw: bool = True  # Copy original images to artifacts/data/raw/
     random_seed: int = 42  # Reproducible split shuffling
+
+    # For training pipeline
+    data_dir: Optional[str] = None
+    image_size: Tuple[int, int] = (224, 224)
+    batch_size: int = 32
+    epochs: int = 10
