@@ -10,7 +10,6 @@ from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.services.splitter_service import SplitterService
 
-
 logging = LoggerManager.get_logger(__name__)
 
 
@@ -28,7 +27,7 @@ class IngestionService:
         
         self.staging_dir = self.config.staging_dir
         self.raw_data_dir = self.config.RAW_DATA_DIR
-
+        self.label_mode = self.config.label_mode  # 'pattern_only' or 'instrument_specific'
 
     def copy_raw_images(self):
         """
@@ -53,13 +52,11 @@ class IngestionService:
             dict: Keys 'train', 'val', 'test' each mapped to a list of image record dicts.
         """
         try:
-
             if not os.path.exists(self.raw_data_dir):
                 raise FileNotFoundError(
                     f"Raw data directory not found: {self.raw_data_dir}. "
                     "Did you forget to run copy_raw_images()?"
                 )
-
 
             records = []
             for instrument in os.listdir(self.raw_data_dir):
@@ -72,9 +69,11 @@ class IngestionService:
                         continue
                     for filename in os.listdir(pattern_path):
                         if filename.endswith(".png"):
+                            label = pattern_type if self.label_mode == "pattern_only" else f"{instrument}__{pattern_type}"
                             records.append({
                                 "instrument": instrument,
                                 "pattern_type": pattern_type,
+                                "label": label,
                                 "filename": filename,
                                 "source_path": os.path.join(pattern_path, filename),
                             })
@@ -93,7 +92,7 @@ class IngestionService:
 
     def write_processed_dataset(self, split_result):
         """
-        Copies split images to processed/{train,val,test}/instrument/pattern_type folders.
+        Copies split images to processed/{train,val,test}/{label}/filename.png
         """
         try:
             for split_name, df in split_result.items():
@@ -101,8 +100,7 @@ class IngestionService:
                     dst_dir = os.path.join(
                         self.config.PROCESSED_DATA_DIR,
                         split_name,
-                        record["instrument"],
-                        record["pattern_type"]
+                        record["label"]
                     )
                     os.makedirs(dst_dir, exist_ok=True)
                     dst_path = os.path.join(dst_dir, record["filename"])
@@ -117,7 +115,6 @@ class IngestionService:
         try:
             all_records = []
             for split_name, df in split_result.items():
-                # Convert each row to a dict and add 'split' key
                 for rec in df.to_dict(orient="records"):
                     rec["split"] = split_name
                     all_records.append(rec)
@@ -129,4 +126,3 @@ class IngestionService:
             return metadata_path
         except Exception as e:
             raise CustomException(e, sys) from e
-
