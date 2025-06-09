@@ -1,0 +1,15 @@
+image_size: [224, 224]
+rescale: 0.003921568627451    # 1.0 / 255.0 for from scatch and 1 for letting 
+                              # pretrained normalization
+
+train_augmentation:
+  horizontal_flip: true
+  rotation: 0.05            # 5% random rotation
+  zoom: [-0.1, 0.2]         # 10% zoom
+  width_shift: 0.05         # 5% horizontal shift
+  height_shift: 0.05        # 5% vertical shift
+  brightness: 0.1           # (optional) adjust brightness up/down by 10%
+  contrast: 0.1             # (optional) adjust contrast by 10%
+
+val_augmentation: false     # reserved (not used)
+infer_augmentation: false   # reserved (not used)

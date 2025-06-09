@@ -9,14 +9,6 @@ logging = LoggerManager.get_logger(__name__)
 
 class ImageDatasetService:
     def __init__(self):
-        """
-        Service to load image datasets for training, validation, or testing.
-
-        Args:
-            data_dir (Path): Root directory containing train/val/test splits.
-            image_size (Tuple[int, int]): Target size for resizing images.
-            batch_size (int): Number of images per batch.
-        """
         self.config = Config()
         self.data_dir = Path(self.config.PROCESSED_DATA_DIR)
         self.image_size = self.config.image_size
@@ -41,16 +33,22 @@ class ImageDatasetService:
 
         logging.info("\n" + "\n".join(lines))
 
-    def get_dataset(self, split: str = "train", print_stats: bool = False) -> Tuple["tf.data.Dataset", list[str]]:
-
+    def get_dataset(
+        self,
+        split: str = "train",
+        prefetch: bool = False,
+        print_stats: bool = False,
+    ) -> Tuple[tf.data.Dataset, list[str]]:
         """
         Load a dataset split without applying transforms or shuffling.
 
         Args:
             split (str): One of 'train', 'val', or 'test'.
+            print_stats (bool): Whether to print dataset statistics.
+            prefetch (bool): Whether to apply .prefetch(AUTOTUNE).
 
         Returns:
-            tf.data.Dataset: Batched and prefetched dataset.
+            Tuple[tf.data.Dataset, list[str]]: The dataset and list of class names.
         """
         split_path = self.data_dir / split
         if not split_path.exists():
@@ -66,9 +64,9 @@ class ImageDatasetService:
         )
 
         class_names = raw_dataset.class_names
-        dataset = raw_dataset.prefetch(tf.data.AUTOTUNE)
+        dataset = raw_dataset.prefetch(tf.data.AUTOTUNE) if prefetch else raw_dataset
 
         if print_stats:
-            self._print_dataset_stats(raw_dataset, class_names,  split)
+            self._print_dataset_stats(raw_dataset, class_names, split)
 
         return dataset, class_names

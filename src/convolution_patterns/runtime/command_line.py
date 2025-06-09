@@ -92,6 +92,12 @@ class CommandLine:
         )
 
         train_parser.add_argument(
+            "--transform-config",
+            type=str, 
+            help="Path to transform config YAML (default: configs/transforms_used.yaml)"
+        )
+
+        train_parser.add_argument(
             "--debug",
             action="store_true",
             help="Enable debug logging"
@@ -156,6 +162,7 @@ class CommandLine:
             image_size=parse_image_size(getattr(args, "image_size", [224, 224])),
             batch_size=getattr(args, "batch_size", 32),
             epochs=getattr(args, "epochs", 10),
+            transform_config_path=getattr(args, "transform_config", None),
         )
 
     @staticmethod

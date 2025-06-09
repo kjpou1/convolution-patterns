@@ -75,6 +75,7 @@ class Config(metaclass=SingletonMeta):
 
         self._epochs = int(os.getenv("EPOCHS", "10"))
 
+        self._transform_config_path = self._resolve_path(os.getenv("TRANSFORM_CONFIG_PATH", "configs/transforms_used.yaml"))
 
 
         self._ensure_directories_exist()
@@ -310,16 +311,26 @@ class Config(metaclass=SingletonMeta):
             raise ValueError("batch_size must be an integer.")
         self._batch_size = value
 
-        @property
-        def epochs(self) -> int:
-            return self._epochs
+    @property
+    def epochs(self) -> int:
+        return self._epochs
 
-        @epochs.setter
-        def epochs(self, value):
-            if not isinstance(value, int):
-                raise ValueError("epochs must be an integer.")
-            self._epochs = value
+    @epochs.setter
+    def epochs(self, value):
+        if not isinstance(value, int):
+            raise ValueError("epochs must be an integer.")
+        self._epochs = value
 
+    @property
+    def transform_config_path(self) -> Optional[str]:
+        return self._transform_config_path
+
+    @transform_config_path.setter
+    def transform_config_path(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("transform_config_path must be a string.")
+        print(f"[Config] Overriding 'transform_config_path': {self._transform_config_path} → {value}")
+        self._transform_config_path = self._resolve_path(value)
 
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
