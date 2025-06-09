@@ -24,3 +24,6 @@ batch_size: 32
 
 # Number of training epochs
 epochs: 10
+
+# Cache dataset(s) in memory
+cache: yes

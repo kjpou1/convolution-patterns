@@ -98,6 +98,12 @@ class CommandLine:
         )
 
         train_parser.add_argument(
+            "--cache",
+            action="store_true",
+            help="Enable dataset caching to speed up training (in-memory only)"
+        )        
+
+        train_parser.add_argument(
             "--debug",
             action="store_true",
             help="Enable debug logging"
@@ -163,6 +169,8 @@ class CommandLine:
             batch_size=getattr(args, "batch_size", 32),
             epochs=getattr(args, "epochs", 10),
             transform_config_path=getattr(args, "transform_config", None),
+            cache=getattr(args, "cache", False),
+
         )
 
     @staticmethod

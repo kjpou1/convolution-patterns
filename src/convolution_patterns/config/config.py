@@ -76,6 +76,7 @@ class Config(metaclass=SingletonMeta):
         self._epochs = int(os.getenv("EPOCHS", "10"))
 
         self._transform_config_path = self._resolve_path(os.getenv("TRANSFORM_CONFIG_PATH", "configs/transforms_used.yaml"))
+        self._cache = str(os.getenv("CACHE", "false")).strip().lower() in ["1", "true", "yes"]
 
 
         self._ensure_directories_exist()
@@ -128,6 +129,10 @@ class Config(metaclass=SingletonMeta):
         if _was_explicit(args, "batch_size"):
             print(f"[Config] Overriding 'batch_size' from CLI: {args.batch_size}")
             self.batch_size = args.batch_size
+
+        if _was_explicit(args, "cache"):
+            print(f"[Config] Overriding 'cache' from CLI: {self._cache} → {args.cache}")
+            self.cache = args.cache
 
 
     def load_from_yaml(self, path: str):
@@ -199,6 +204,9 @@ class Config(metaclass=SingletonMeta):
             print(f"[Config] Overriding 'epochs': {self._epochs} → {val}")
             self.epochs = val
 
+        if "cache" in data:
+            print(f"[Config] Overriding 'cache': {self._cache} → {data['cache']}")
+            self.cache = data["cache"]
 
     @property
     def config_path(self):
@@ -331,6 +339,16 @@ class Config(metaclass=SingletonMeta):
             raise ValueError("transform_config_path must be a string.")
         print(f"[Config] Overriding 'transform_config_path': {self._transform_config_path} → {value}")
         self._transform_config_path = self._resolve_path(value)
+
+        @property
+        def cache(self) -> bool:
+            return self._cache
+
+        @cache.setter
+        def cache(self, value: bool):
+            if not isinstance(value, bool):
+                raise ValueError("cache must be a boolean.")
+            self._cache = value
 
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:

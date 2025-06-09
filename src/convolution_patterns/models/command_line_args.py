@@ -35,4 +35,4 @@ class CommandLineArgs:
     batch_size: int = 32
     epochs: int = 10
     transform_config_path: Optional[str]  = None # Optional path to YAML transform config file
-
+    cache: bool = False  # Enable dataset caching during training

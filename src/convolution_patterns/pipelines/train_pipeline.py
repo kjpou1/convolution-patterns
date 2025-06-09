@@ -32,7 +32,13 @@ class TrainPipeline:
         train_ds = train_ds.map(lambda x, y: (train_pipeline(x), y), num_parallel_calls=tf.data.AUTOTUNE)
         val_ds = val_ds.map(lambda x, y: (val_pipeline(x), y), num_parallel_calls=tf.data.AUTOTUNE)
 
-        # prefetch but no batch as the imagedatasetservice already applies batch
+        # Optional caching
+        if self.config.cache:
+            logging.info("[TrainPipeline] Caching datasets in memory...")
+            train_ds = train_ds.cache()
+            val_ds = val_ds.cache()
+
+        # Prefetch (no batching here; ImageDatasetService already handles that)
         train_ds = train_ds.prefetch(tf.data.AUTOTUNE)
         val_ds = val_ds.prefetch(tf.data.AUTOTUNE)
 
