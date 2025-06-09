@@ -41,16 +41,10 @@ class TransformService:
         return cls(TransformConfig.from_yaml(path), model_name=model_name)
 
     def get_pipeline(self, mode: str = "train") -> tf.keras.Sequential:
-        layers = [
-            tf.keras.layers.Resizing(*self.config.image_size)
-        ]
+        layers = []
 
-        # Optionally use built-in preprocessing for pretrained models
-        if self.model_name and self.model_name in PREPROCESS_FN_MAP:
-            preprocess_fn = PREPROCESS_FN_MAP[self.model_name]
-            layers.append(tf.keras.layers.Lambda(preprocess_fn))
-        elif self.config.rescale != 1.0:
-            layers.append(tf.keras.layers.Rescaling(self.config.rescale))
+        # Resize always first
+        layers.append(tf.keras.layers.Resizing(*self.config.image_size))
 
         # Augmentations (only for training)
         if mode == "train":
@@ -59,9 +53,9 @@ class TransformService:
                 layers.append(tf.keras.layers.RandomFlip("horizontal"))
             if aug.get("rotation", 0) > 0:
                 layers.append(tf.keras.layers.RandomRotation(aug["rotation"]))
-            zoom = self.config.zoom_range
-            if isinstance(zoom, tuple):
-                layers.append(tf.keras.layers.RandomZoom(height_factor=zoom, width_factor=zoom))
+            zoom = aug.get("zoom")
+            if isinstance(zoom, list) and len(zoom) == 2:
+                layers.append(tf.keras.layers.RandomZoom(height_factor=tuple(zoom), width_factor=tuple(zoom)))
             elif isinstance(zoom, float) and zoom > 0:
                 layers.append(tf.keras.layers.RandomZoom(zoom))
             if aug.get("width_shift", 0) > 0 or aug.get("height_shift", 0) > 0:
@@ -74,7 +68,15 @@ class TransformService:
             if aug.get("contrast", 0) > 0:
                 layers.append(tf.keras.layers.RandomContrast(aug["contrast"]))
 
+        # Rescaling or model-specific preprocessing goes LAST
+        if self.model_name and self.model_name in self.PREPROCESS_FN_MAP:
+            preprocess_fn = self.PREPROCESS_FN_MAP[self.model_name]
+            layers.append(tf.keras.layers.Lambda(preprocess_fn))
+        elif self.config.rescale != 1.0:
+            layers.append(tf.keras.layers.Rescaling(self.config.rescale))
+
         return tf.keras.Sequential(layers, name=f"{mode}_transform")
+
 
 
     def save_config(self, path: str):

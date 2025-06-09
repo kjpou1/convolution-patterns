@@ -9,6 +9,7 @@ packages = [{ include = "convolution_patterns", from = "src" }]
 
 [tool.poetry.scripts]
 patterncli = "launch_host:launch"
+debug-dash = "dash_apps.dash_debug_app:app.run"
 
 [tool.poetry.dependencies]
 python = ">=3.12"
@@ -20,6 +21,8 @@ scikit-learn = "^1.6.1"
 opencv-python = "^4.11.0.86"
 matplotlib = "^3.10.3"
 seaborn = "^0.13.2"
+dash = "^3.0.4"
+dash-bootstrap-components = "^2.0.3"
 
 
 [tool.poetry.group.dev.dependencies]
