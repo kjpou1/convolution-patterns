@@ -77,7 +77,7 @@ class Config(metaclass=SingletonMeta):
 
         self._transform_config_path = self._resolve_path(os.getenv("TRANSFORM_CONFIG_PATH", "configs/transforms_used.yaml"))
         self._cache = str(os.getenv("CACHE", "false")).strip().lower() in ["1", "true", "yes"]
-
+        self._model_config_path = self._resolve_path(os.getenv("MODEL_CONFIG_PATH", "configs/backbones/EfficientNetB0.yaml"))
 
         self._ensure_directories_exist()
         Config._is_initialized = True
@@ -340,16 +340,26 @@ class Config(metaclass=SingletonMeta):
         print(f"[Config] Overriding 'transform_config_path': {self._transform_config_path} → {value}")
         self._transform_config_path = self._resolve_path(value)
 
-        @property
-        def cache(self) -> bool:
-            return self._cache
+    @property
+    def cache(self) -> bool:
+        return self._cache
 
-        @cache.setter
-        def cache(self, value: bool):
-            if not isinstance(value, bool):
-                raise ValueError("cache must be a boolean.")
-            self._cache = value
+    @cache.setter
+    def cache(self, value: bool):
+        if not isinstance(value, bool):
+            raise ValueError("cache must be a boolean.")
+        self._cache = value
 
+    @property
+    def model_config_path(self) -> Optional[str]:
+        return self._model_config_path
+
+    @model_config_path.setter
+    def model_config_path(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("model_config_path must be a string.")
+        print(f"[Config] Overriding 'model_config_path': {self._model_config_path} → {value}")
+        self._model_config_path = self._resolve_path(value)
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:

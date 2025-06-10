@@ -9,14 +9,14 @@ from tensorflow.keras.applications import (
     xception
 )
 
-PREPROCESS_FN_MAP = {
-    "EfficientNetB0": efficientnet.preprocess_input,
-    "EfficientNetB1": efficientnet.preprocess_input,
-    "ResNet50": resnet.preprocess_input,
-    "MobileNetV2": mobilenet.preprocess_input,
-    "InceptionV3": inception_v3.preprocess_input,
-    "Xception": xception.preprocess_input,
-}
+# PREPROCESS_FN_MAP = {
+#     "EfficientNetB0": efficientnet.preprocess_input,
+#     "EfficientNetB1": efficientnet.preprocess_input,
+#     "ResNet50": resnet.preprocess_input,
+#     "MobileNetV2": mobilenet.preprocess_input,
+#     "InceptionV3": inception_v3.preprocess_input,
+#     "Xception": xception.preprocess_input,
+# }
 
 from convolution_patterns.config.transform_config import TransformConfig
 

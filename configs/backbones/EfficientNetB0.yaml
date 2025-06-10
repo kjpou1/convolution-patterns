@@ -1,0 +1,20 @@
+model:
+  backbone: EfficientNetB0
+  input_shape: [224, 224, 3]
+  custom_head:
+    layers:
+      - type: Dropout
+        rate: 0.3
+      - type: Dense
+        units: 256
+        activation: relu
+      - type: Dropout
+        rate: 0.2
+      - type: Dense
+        units: num_classes
+        activation: softmax
+
+training:
+  optimizer: adam
+  learning_rate: 0.0005
+  loss: categorical_crossentropy
