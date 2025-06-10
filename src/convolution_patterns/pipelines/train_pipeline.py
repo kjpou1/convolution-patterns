@@ -1,8 +1,10 @@
+import numpy as np
 import tensorflow as tf
 from convolution_patterns.config.config import Config
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.services.image_dataset_service import ImageDatasetService
 from convolution_patterns.services.model_builder_service import ModelBuilderService
+from convolution_patterns.services.training_logger_service import TrainingLoggerService
 from convolution_patterns.services.transform_service import TransformService
 
 logging = LoggerManager.get_logger(__name__)
@@ -13,7 +15,16 @@ class TrainPipeline:
         self.split = split
         self.print_stats = True
 
+    def _collect_predictions_and_labels(self, model, dataset):
+        y_true = []
+        y_pred = []
 
+        for batch_x, batch_y in dataset:
+            preds = model.predict(batch_x, verbose=0)
+            y_pred.extend(np.argmax(preds, axis=1))
+            y_true.extend(np.argmax(batch_y.numpy(), axis=1))  # assuming one-hot encoded
+
+        return np.array(y_true), np.array(y_pred)
     def run(self):
         # Load transform config
         path = self.config.transform_config_path
@@ -50,11 +61,25 @@ class TrainPipeline:
 
         # Train model
         logging.info("[TrainPipeline] Starting training loop...")
-        model.fit(
+        model_name = model_builder_service.model_name
+        logger = TrainingLoggerService(model_name)
+
+        history = model.fit(
             train_ds,
             validation_data=val_ds,
             epochs=self.config.epochs,
-            callbacks=[],  # can populate later via config
+            callbacks=[],
         )
+
+        # Save training artifacts
+        logger.save_history(history)
+        logger.save_plots(history)
+        logger.save_model(model)
+        logger.save_metrics_summary(history)
+
+
+        # Evaluate model and log artifacts
+        y_true, y_pred = self._collect_predictions_and_labels(model, val_ds)
+        logger.save_evaluation_artifacts(y_true, y_pred, train_class_names)
 
         return model, train_ds, val_ds, train_class_names

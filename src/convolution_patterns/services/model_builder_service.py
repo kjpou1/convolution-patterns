@@ -73,3 +73,8 @@ class ModelBuilderService:
 
     def _get_metrics(self):
         return [tf.keras.metrics.CategoricalAccuracy(name="accuracy")]
+
+
+    @property
+    def model_name(self) -> str:
+        return self.model_cfg.get("name") or f"{self.backbone_name}_custom_head"
