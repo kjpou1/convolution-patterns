@@ -1,6 +1,6 @@
 # 🧱 Convolution CV — Project Architecture
 
-Convolution CV is a CNN-based pattern classification system using indicator charts as image input. This document outlines the core architecture of the ETL and runtime pipelines, component responsibilities, and design principles such as immutability and modular reuse.
+Convolution CV is a CNN-based pattern classification system using indicator charts as image input. This document outlines the architecture of the ETL and runtime pipelines, component responsibilities, and guiding design principles.
 
 ---
 
@@ -9,12 +9,12 @@ Convolution CV is a CNN-based pattern classification system using indicator char
 ```text
 artifacts/
 ├── data/
-│   ├── raw/                    # Extracted from staging, immutable
-│   ├── processed/              # Train/Val/Test image folders
+│   ├── raw/                    # Immutable image snapshots from staging
+│   ├── processed/              # Stratified Train/Val/Test image folders
 │   └── metadata/               # Metadata CSVs (e.g., pattern_metadata.csv)
-├── models/                     # Trained model checkpoints
-├── logs/                       # Training logs
-````
+├── models/                     # Trained model checkpoints (.h5, .keras)
+├── logs/                       # Training logs (JSON, CSV, TensorBoard)
+```
 
 ---
 
@@ -26,77 +26,108 @@ flowchart TD
   IngestionService --> RAW
   RAW --> SplitterService
   SplitterService --> PROCESSED
-  PROCESSED --> MetadataWriter
-  MetadataWriter --> METADATA
+  PROCESSED --> IngestionService_Metadata
+  IngestionService_Metadata --> METADATA
 ```
 
-### Components
+### 🔹 Components
 
-| Component               | Role                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `IngestionService`      | Extracts and reorganizes staged PNGs into `raw/instrument/pattern_type/` |
-| `SplitterService`       | Stratified 70/15/15 split into `processed/{train,val,test}/...`          |
-| `MetadataWriterService` | Writes metadata to `pattern_metadata.csv`                                |
+| Component          | Responsibility                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------- |
+| `IngestionService` | Extracts & renames staged PNGs into `raw/instrument/pattern_type/`, and writes metadata after split |
+| `SplitterService`  | Applies stratified 70/15/15 split into `processed/{train,val,test}/...`                             |
 
-### Output
+### 📤 Output Example
 
 ```text
 artifacts/data/
 ├── raw/
 │   └── AUD_CHF/Trend_Reversal_Bullish/AUD_CHF_0001.png
-├── processed/train|val|test/
-│   └── NZD_JPY/LC_Convergence_Bearish/NZD_JPY_0091.png
-└── metadata/pattern_metadata.csv
+├── processed/
+│   ├── train/
+│   │   └── NZD_JPY/LC_Convergence_Bearish/NZD_JPY_0091.png
+│   ├── val/
+│   └── test/
+└── metadata/
+    └── pattern_metadata.csv
 ```
 
 ---
 
-## 🟧 Training & Inference Pipeline (Reusable Runtime Logic)
+## 🟧 Training Pipeline (Runtime Logic)
 
 ```mermaid
 flowchart TD
-  PROCESSED --> IngestionService_Load
-  IngestionService_Load --> TransformService
-  TransformService --> LoadService
-  LoadService --> TensorflowDataset
+  PROCESSED --> ImageDatasetService
+  ImageDatasetService --> TransformService
+  TransformService --> tfDataset
+  tfDataset --> ModelBuilderService
+  ModelBuilderService --> TrainPipeline
+  TrainPipeline --> TrainingLoggerService
 ```
 
-### Components
+### 🔸 Components
 
-| Component          | Role                                                        |
-| ------------------ | ----------------------------------------------------------- |
-| `IngestionService` | Loads image paths + labels from processed split directories |
-| `TransformService` | Applies resizing, normalization, and augmentation           |
-| `LoadService`      | Builds `tf.data.Dataset` from transformed data              |
+| Component               | Role                                                               |
+| ----------------------- | ------------------------------------------------------------------ |
+| `ImageDatasetService`   | Loads image paths + labels from `processed/` split folders         |
+| `TransformService`      | Loads transform config and applies mode-specific augmentations     |
+| `ModelBuilderService`   | Builds CNN model based on config and number of classes             |
+| `TrainPipeline`         | Coordinates training, validation, evaluation, and logging          |
+| `TrainingLoggerService` | Saves training history, evaluation metrics, plots, and model files |
 
 ---
 
-## 🔁 Double Use of `IngestionService`
+## 🔁 `IngestionService` is ETL-Only
 
-| Context       | Method                   | Purpose                             |
-| ------------- | ------------------------ | ----------------------------------- |
-| **ETL Phase** | `extract_from_staging()` | Ingest raw image data from staging  |
-| **Runtime**   | `load_split("train")`    | Load image-label pairs for training |
+| Phase   | Method                   | Purpose                                |
+| ------- | ------------------------ | -------------------------------------- |
+| **ETL** | `extract_from_staging()` | Extract staged data → `raw/`           |
+|         | `write_metadata()`       | Save `pattern_metadata.csv` post-split |
+
+**Runtime loading is now fully handled by `ImageDatasetService`.**
+
+---
+
+## 🔄 Inference Pipeline (Planned)
+
+The inference pipeline will reuse many components from training but operate in **read-only, prediction-only** mode.
+
+| Phase     | Training                       | Inference                                    |
+| --------- | ------------------------------ | -------------------------------------------- |
+| Transform | Augmentations (`mode="train"`) | Resize & normalize only (`mode="inference"`) |
+| Target    | Supervised labels              | Predicted class or softmax probabilities     |
+| Output    | Metrics, plots, checkpoints    | Predictions (CSV, visual overlay, etc.)      |
+
+### 🔸 Expected Components
+
+| Component                    | Role                                              |
+| ---------------------------- | ------------------------------------------------- |
+| `InferencePipeline`          | Orchestrates prediction flow                      |
+| `ImageDatasetService`        | Loads data to infer on (from split or custom dir) |
+| `TransformService`           | Applies resize/normalization                      |
+| `ModelLoader` (planned)      | Loads `.keras` or `.h5` model checkpoint          |
+| `PredictionWriter` (planned) | Writes predictions, overlays, or CSV outputs      |
 
 ---
 
 ## ✅ Design Principles
 
-* **Immutable Data:** Once extracted, data in `raw/` is never modified.
-* **Modular Services:** Each component has a focused responsibility and is reused across pipelines.
-* **Auditability:** All metadata is versioned and centrally stored.
-* **Separation of Concerns:** ETL is decoupled from runtime pipelines (training/inference).
-* **Extensibility:** Easy to integrate MLflow, Grad-CAM, or additional services without disruption.
+* **Immutable `raw/`:** Raw data is frozen post-extraction for reproducibility
+* **Modular Services:** Shared services like `TransformService` and `ImageDatasetService` are reused across pipelines
+* **Decoupled Pipelines:** ETL and runtime flows are isolated for clarity and testability
+* **Audit-Friendly Metadata:** Centralized CSVs for lineage and evaluation
+* **Extensibility:** Easy to extend with tools like Grad-CAM, MLflow, or TFRecord export
 
 ---
 
-## 🛠️ Future Enhancements
+## 🔮 Future Enhancements
 
-- **MLflow integration for training & inference pipelines**  
-  _(⚠️ Not used in ETL)_:  
-  MLflow may be added to track experiments, log model metrics, store artifacts like confusion matrices, and manage model versions. It will be integrated into the **training and inference pipelines only**, not the ETL process, which remains static and reproducible by design.
-
-- **Optional TFRecord export in LoadService**
-- **Augmentation visualization tools**
-- **Confusion matrix & feature attribution dashboards**
+| Feature                           | Status         | Notes                                                  |
+| --------------------------------- | -------------- | ------------------------------------------------------ |
+| MLflow integration                | ⏳ Planned      | For experiment tracking, model registry (runtime only) |
+| TFRecord export support           | ⏳ Planned      | For high-throughput data ingestion                     |
+| Augmentation preview in Dash      | ⏳ Planned      | Visual debug of transform configs                      |
+| Confusion matrix + attribution UI | ⏳ Planned      | Dash-based diagnostics after evaluation                |
+| Inference pipeline                | 🚧 Not started | Needed for production predictions and CLI batch runs   |
 
