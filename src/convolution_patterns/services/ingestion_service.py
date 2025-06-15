@@ -120,7 +120,7 @@ class IngestionService:
                     all_records.append(rec)
 
             df = pd.DataFrame(all_records)
-            metadata_path = os.path.join(self.config.BASE_DIR, "data", "metadata", "pattern_metadata.csv")
+            metadata_path = os.path.join(self.config.METADATA_DIR, "pattern_metadata.csv")
             os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
             df.to_csv(metadata_path, index=False)
             return metadata_path

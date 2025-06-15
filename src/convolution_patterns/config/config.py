@@ -48,6 +48,7 @@ class Config(metaclass=SingletonMeta):
         self.HISTORY_FILE_PATH = os.path.join(self.HISTORY_DIR, "training_history.json")
         self.REPORTS_DIR = os.path.join(self.BASE_DIR, "reports")
         self.PROCESSED_DATA_DIR = os.path.join(self.BASE_DIR, "data", "processed")
+        self.METADATA_DIR = os.path.join(self.BASE_DIR, "data", "metadata")
 
         self._staging_dir = os.getenv("STAGING_DIR", None)
         self._preserve_raw = str(os.getenv("PRESERVE_RAW", "true")).strip().lower() in [
@@ -87,6 +88,7 @@ class Config(metaclass=SingletonMeta):
             [
                 self.RAW_DATA_DIR,
                 self.PROCESSED_DATA_DIR,
+                self.METADATA_DIR,
                 self.MODEL_DIR,
                 self.LOG_DIR,
                 self.REPORTS_DIR,
