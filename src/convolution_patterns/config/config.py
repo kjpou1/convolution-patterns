@@ -65,20 +65,43 @@ class Config(metaclass=SingletonMeta):
 
         img_vals = os.getenv("IMAGE_SIZE", "224,224").split(",")
         if len(img_vals) != 2:
-            raise ValueError("IMAGE_SIZE must contain exactly two comma-separated values")
+            raise ValueError(
+                "IMAGE_SIZE must contain exactly two comma-separated values"
+            )
         self._image_size: tuple[int, int] = (int(img_vals[0]), int(img_vals[1]))
 
         # Add check to enforce it's exactly 2
         if len(self._image_size) != 2:
             raise ValueError("IMAGE_SIZE must contain exactly two integers")
-            
+
         self._batch_size = int(os.getenv("BATCH_SIZE", "32"))
 
         self._epochs = int(os.getenv("EPOCHS", "10"))
 
-        self._transform_config_path = self._resolve_path(os.getenv("TRANSFORM_CONFIG_PATH", "configs/transforms_used.yaml"))
-        self._cache = str(os.getenv("CACHE", "false")).strip().lower() in ["1", "true", "yes"]
-        self._model_config_path = self._resolve_path(os.getenv("MODEL_CONFIG_PATH", "configs/backbones/EfficientNetB0.yaml"))
+        self._transform_config_path = self._resolve_path(
+            os.getenv("TRANSFORM_CONFIG_PATH", "configs/transforms_used.yaml")
+        )
+        self._cache = str(os.getenv("CACHE", "false")).strip().lower() in [
+            "1",
+            "true",
+            "yes",
+        ]
+        self._model_config_path = self._resolve_path(
+            os.getenv("MODEL_CONFIG_PATH", "configs/backbones/EfficientNetB0.yaml")
+        )
+
+        # Inference-specific config
+        self._inference_model_path = os.getenv(
+            "INFERENCE_MODEL_PATH", os.path.join(self.MODEL_DIR, "best_model.h5")
+        )
+        self._inference_line_thickness = int(os.getenv("INFERENCE_LINE_THICKNESS", "2"))
+        self._inference_window_sizes = [
+            int(x)
+            for x in os.getenv("INFERENCE_WINDOW_SIZES", "21,19,17,15,13,11").split(",")
+        ]
+        self._inference_confidence_threshold = float(
+            os.getenv("INFERENCE_CONFIDENCE_THRESHOLD", "0.8")
+        )
 
         self._ensure_directories_exist()
         Config._is_initialized = True
@@ -136,7 +159,6 @@ class Config(metaclass=SingletonMeta):
             print(f"[Config] Overriding 'cache' from CLI: {self._cache} → {args.cache}")
             self.cache = args.cache
 
-
     def load_from_yaml(self, path: str):
         """
         Override config values from a YAML config file.
@@ -187,8 +209,14 @@ class Config(metaclass=SingletonMeta):
 
         if "image_size" in data:
             val = data["image_size"]
-            if not isinstance(val, (list, tuple)) or len(val) != 2 or not all(isinstance(x, int) for x in val):
-                raise ValueError("image_size from YAML must be a list or tuple of two integers.")
+            if (
+                not isinstance(val, (list, tuple))
+                or len(val) != 2
+                or not all(isinstance(x, int) for x in val)
+            ):
+                raise ValueError(
+                    "image_size from YAML must be a list or tuple of two integers."
+                )
             print(f"[Config] Overriding 'image_size': {self._image_size} → {val}")
             self.image_size = val
 
@@ -303,13 +331,12 @@ class Config(metaclass=SingletonMeta):
     @image_size.setter
     def image_size(self, value):
         if (
-            not isinstance(value, (list, tuple)) or
-            len(value) != 2 or
-            not all(isinstance(x, int) for x in value)
+            not isinstance(value, (list, tuple))
+            or len(value) != 2
+            or not all(isinstance(x, int) for x in value)
         ):
             raise ValueError("image_size must be a tuple of exactly two integers.")
         self._image_size = (int(value[0]), int(value[1]))
-
 
     @property
     def batch_size(self) -> int:
@@ -339,7 +366,9 @@ class Config(metaclass=SingletonMeta):
     def transform_config_path(self, value: str):
         if not isinstance(value, str):
             raise ValueError("transform_config_path must be a string.")
-        print(f"[Config] Overriding 'transform_config_path': {self._transform_config_path} → {value}")
+        print(
+            f"[Config] Overriding 'transform_config_path': {self._transform_config_path} → {value}"
+        )
         self._transform_config_path = self._resolve_path(value)
 
     @property
@@ -360,8 +389,50 @@ class Config(metaclass=SingletonMeta):
     def model_config_path(self, value: str):
         if not isinstance(value, str):
             raise ValueError("model_config_path must be a string.")
-        print(f"[Config] Overriding 'model_config_path': {self._model_config_path} → {value}")
+        print(
+            f"[Config] Overriding 'model_config_path': {self._model_config_path} → {value}"
+        )
         self._model_config_path = self._resolve_path(value)
+
+    @property
+    def inference_model_path(self) -> str:
+        return self._inference_model_path
+
+    @inference_model_path.setter
+    def inference_model_path(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("inference_model_path must be a string.")
+        self._inference_model_path = value
+
+    @property
+    def line_thickness(self) -> int:
+        return self._inference_line_thickness
+
+    @line_thickness.setter
+    def line_thickness(self, value: int):
+        if not isinstance(value, int):
+            raise ValueError("line_thickness must be an integer.")
+        self._inference_line_thickness = value
+
+    @property
+    def window_sizes(self) -> list:
+        return self._inference_window_sizes
+
+    @window_sizes.setter
+    def window_sizes(self, value: list):
+        if not (isinstance(value, list) and all(isinstance(x, int) for x in value)):
+            raise ValueError("window_sizes must be a list of integers.")
+        self._inference_window_sizes = value
+
+    @property
+    def confidence_threshold(self) -> float:
+        return self._inference_confidence_threshold
+
+    @confidence_threshold.setter
+    def confidence_threshold(self, value: float):
+        if not isinstance(value, (float, int)):
+            raise ValueError("confidence_threshold must be a float.")
+        self._inference_confidence_threshold = float(value)
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:
