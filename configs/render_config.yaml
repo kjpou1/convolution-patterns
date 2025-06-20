@@ -1,0 +1,14 @@
+# config/render_config.yaml
+debug: true
+
+render_images:
+  #input_path: "data/indicators.csv"
+  #output_dir: "artifacts/data/rendered"
+  #manifest_path: "artifacts/data/rendered/manifest.csv"
+  window_sizes: [21, 19, 17, 15, 13, 11, 9, 7, 5]
+  backend: "pil"
+  #backend: "matplotlib"
+  image_format: "png"
+  include_close: no  # or False, depending on your preference
+
+image_size: [224, 224]

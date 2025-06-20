@@ -38,10 +38,21 @@
       "type": "debugpy",
       "request": "launch",
       "program": "launch_host.py",
+      "args": ["train", "--config", "configs/train_config.yaml"]
+    },
+    {
+      "name": "Render Image",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "launch_host.py",
       "args": [
-        "train",
+        "render-images",
         "--config",
-        "configs/train_config.yaml",
+        "configs/render_config.yaml",
+        "--input",
+        "./examples/AUD_JPY_processed_signals.csv",
+        "--output-dir",
+        "./data/rendered/AUDCHF"
       ]
     }
   ]

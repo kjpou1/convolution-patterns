@@ -49,6 +49,7 @@ class Config(metaclass=SingletonMeta):
         self.REPORTS_DIR = os.path.join(self.BASE_DIR, "reports")
         self.PROCESSED_DATA_DIR = os.path.join(self.BASE_DIR, "data", "processed")
         self.METADATA_DIR = os.path.join(self.BASE_DIR, "data", "metadata")
+        self.RENDERED_IMAGES_DIR = os.path.join(self.BASE_DIR, "data", "rendered")
 
         self._staging_dir = os.getenv("STAGING_DIR", None)
         self._preserve_raw = str(os.getenv("PRESERVE_RAW", "true")).strip().lower() in [
@@ -75,7 +76,6 @@ class Config(metaclass=SingletonMeta):
             raise ValueError("IMAGE_SIZE must contain exactly two integers")
 
         self._batch_size = int(os.getenv("BATCH_SIZE", "32"))
-
         self._epochs = int(os.getenv("EPOCHS", "10"))
 
         self._transform_config_path = self._resolve_path(
@@ -103,6 +103,25 @@ class Config(metaclass=SingletonMeta):
             os.getenv("INFERENCE_CONFIDENCE_THRESHOLD", "0.8")
         )
 
+        # === Render-Images Config ===
+        self._render_input_path = os.getenv("RENDER_INPUT_PATH", None)
+        self._render_output_dir = os.getenv(
+            "RENDER_OUTPUT_DIR", self.RENDERED_IMAGES_DIR
+        )
+        self._render_manifest_path = os.getenv("RENDER_MANIFEST_PATH", "manifest.csv")
+        self._render_window_sizes = [
+            int(x)
+            for x in os.getenv("RENDER_WINDOW_SIZES", "21,19,17,15,13,11").split(",")
+        ]
+        self._render_backend = os.getenv("RENDER_BACKEND", "matplotlib")
+        self._render_image_format = os.getenv("RENDER_IMAGE_FORMAT", "png")
+
+        self._include_close = str(
+            os.getenv("INCLUDE_CLOSE", "true")
+        ).strip().lower() in ["1", "true", "yes"]
+
+        self._render_line_width = float(os.getenv("RENDER_LINE_WIDTH", "1.5"))
+
         self._ensure_directories_exist()
         Config._is_initialized = True
 
@@ -116,6 +135,7 @@ class Config(metaclass=SingletonMeta):
                 self.LOG_DIR,
                 self.REPORTS_DIR,
                 self.HISTORY_DIR,
+                self.RENDERED_IMAGES_DIR,
             ]
         )
 
@@ -147,6 +167,7 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'random_seed' from CLI: {self._random_seed} → {args.random_seed}"
             )
             self.random_seed = args.random_seed
+
         if _was_explicit(args, "image_size"):
             print(f"[Config] Overriding 'image_size' from CLI: {args.image_size}")
             self.image_size = args.image_size
@@ -158,6 +179,53 @@ class Config(metaclass=SingletonMeta):
         if _was_explicit(args, "cache"):
             print(f"[Config] Overriding 'cache' from CLI: {self._cache} → {args.cache}")
             self.cache = args.cache
+
+        # === Render-Images CLI Overrides ===
+        if _was_explicit(args, "input"):
+            print(
+                f"[Config] Overriding 'render_input_path' from CLI: {args.input_path}"
+            )
+            self.render_input_path = args.input_path
+
+        if _was_explicit(args, "output_dir"):
+            print(
+                f"[Config] Overriding 'render_output_dir' from CLI: {args.output_dir}"
+            )
+            self.render_output_dir = args.output_dir
+
+        if _was_explicit(args, "manifest"):
+            print(
+                f"[Config] Overriding 'render_manifest_path' from CLI: {args.manifest_path}"
+            )
+            self.render_manifest_path = args.manifest_path
+
+        if _was_explicit(args, "window_sizes"):
+            print(
+                f"[Config] Overriding 'render_window_sizes' from CLI: {args.window_sizes}"
+            )
+            self.render_window_sizes = args.window_sizes
+
+        if _was_explicit(args, "backend"):
+            print(f"[Config] Overriding 'render_backend' from CLI: {args.backend}")
+            self.render_backend = args.backend
+
+        if _was_explicit(args, "image_format"):
+            print(
+                f"[Config] Overriding 'render_image_format' from CLI: {args.image_format}"
+            )
+            self.render_image_format = args.image_format
+
+        if _was_explicit(args, "include_close"):
+            print(
+                f"[Config] Overriding 'include_close' from CLI: {self._include_close} → {args.include_close}"
+            )
+            self.include_close = args.include_close
+
+        if _was_explicit(args, "line_width"):
+            print(
+                f"[Config] Overriding 'render_line_width' from CLI: {args.line_width}"
+            )
+            self.render_line_width = args.line_width
 
     def load_from_yaml(self, path: str):
         """
@@ -238,6 +306,81 @@ class Config(metaclass=SingletonMeta):
             print(f"[Config] Overriding 'cache': {self._cache} → {data['cache']}")
             self.cache = data["cache"]
 
+        # === Render-Images YAML Config ===
+        render_config = data.get("render_images", {})
+
+        if "input_path" in render_config:
+            print(
+                f"[Config] Overriding 'render_input_path': {self._render_input_path} → {render_config['input_path']}"
+            )
+            self.render_input_path = render_config["input_path"]
+
+        if "output_dir" in render_config:
+            print(
+                f"[Config] Overriding 'render_output_dir': {self._render_output_dir} → {render_config['output_dir']}"
+            )
+            self.render_output_dir = render_config["output_dir"]
+
+        if "manifest_path" in render_config:
+            print(
+                f"[Config] Overriding 'render_manifest_path': {self._render_manifest_path} → {render_config['manifest_path']}"
+            )
+            self.render_manifest_path = render_config["manifest_path"]
+
+        if "window_sizes" in render_config:
+            val = render_config["window_sizes"]
+            if not (isinstance(val, list) and all(isinstance(x, int) for x in val)):
+                raise ValueError(
+                    "render_images.window_sizes from YAML must be a list of integers."
+                )
+            print(
+                f"[Config] Overriding 'render_window_sizes': {self._render_window_sizes} → {val}"
+            )
+            self.render_window_sizes = val
+
+        if "backend" in render_config:
+            val = render_config["backend"]
+            if val not in ["matplotlib", "pil"]:
+                raise ValueError(
+                    "render_images.backend from YAML must be 'matplotlib' or 'pil'."
+                )
+            print(
+                f"[Config] Overriding 'render_backend': {self._render_backend} → {val}"
+            )
+            self.render_backend = val
+
+        if "image_format" in render_config:
+            val = render_config["image_format"]
+            if val not in ["png", "jpg", "numpy"]:
+                raise ValueError(
+                    "render_images.image_format from YAML must be 'png', 'jpg', or 'numpy'."
+                )
+            print(
+                f"[Config] Overriding 'render_image_format': {self._render_image_format} → {val}"
+            )
+            self.render_image_format = val
+
+        if "include_close" in render_config:
+            val = render_config["include_close"]
+            if not isinstance(val, bool):
+                raise ValueError(
+                    "render_images.include_close from YAML must be a boolean."
+                )
+            print(f"[Config] Overriding 'include_close': {self._include_close} → {val}")
+            self.include_close = val
+
+        if "line_width" in render_config:
+            val = render_config["line_width"]
+            if not isinstance(val, (float, int)):
+                raise ValueError(
+                    "render_images.line_width from YAML must be a float or int."
+                )
+            print(
+                f"[Config] Overriding 'render_line_width': {self._render_line_width} → {val}"
+            )
+            self.render_line_width = val
+
+    # === Existing Properties (unchanged) ===
     @property
     def config_path(self):
         return self._config_path
@@ -433,6 +576,87 @@ class Config(metaclass=SingletonMeta):
         if not isinstance(value, (float, int)):
             raise ValueError("confidence_threshold must be a float.")
         self._inference_confidence_threshold = float(value)
+
+    # === Render-Images Properties ===
+    @property
+    def render_input_path(self) -> Optional[str]:
+        return self._render_input_path
+
+    @render_input_path.setter
+    def render_input_path(self, value: Optional[str]):
+        if value is not None and not isinstance(value, str):
+            raise ValueError("render_input_path must be a string or None.")
+        self._render_input_path = self._resolve_path(value)
+
+    @property
+    def render_output_dir(self) -> str:
+        return self._render_output_dir
+
+    @render_output_dir.setter
+    def render_output_dir(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("render_output_dir must be a string.")
+        self._render_output_dir = self._resolve_path(value)
+
+    @property
+    def render_manifest_path(self) -> str:
+        return self._render_manifest_path
+
+    @render_manifest_path.setter
+    def render_manifest_path(self, value: str):
+        if not isinstance(value, str):
+            raise ValueError("render_manifest_path must be a string.")
+        self._render_manifest_path = self._resolve_path(value)
+
+    @property
+    def render_window_sizes(self) -> list[int]:
+        return self._render_window_sizes
+
+    @render_window_sizes.setter
+    def render_window_sizes(self, value: list[int]):
+        if not (isinstance(value, list) and all(isinstance(x, int) for x in value)):
+            raise ValueError("render_window_sizes must be a list of integers.")
+        self._render_window_sizes = value
+
+    @property
+    def render_backend(self) -> str:
+        return self._render_backend
+
+    @render_backend.setter
+    def render_backend(self, value: str):
+        if value not in ["matplotlib", "pil"]:
+            raise ValueError("render_backend must be 'matplotlib' or 'pil'.")
+        self._render_backend = value
+
+    @property
+    def render_image_format(self) -> str:
+        return self._render_image_format
+
+    @render_image_format.setter
+    def render_image_format(self, value: str):
+        if value not in ["png", "jpg", "numpy"]:
+            raise ValueError("render_image_format must be 'png', 'jpg', or 'numpy'.")
+        self._render_image_format = value
+
+    @property
+    def include_close(self) -> bool:
+        return self._include_close
+
+    @include_close.setter
+    def include_close(self, value: bool):
+        if not isinstance(value, bool):
+            raise ValueError("include_close must be a boolean.")
+        self._include_close = value
+
+    @property
+    def render_line_width(self) -> float:
+        return self._render_line_width
+
+    @render_line_width.setter
+    def render_line_width(self, value: float):
+        if not isinstance(value, (float, int)):
+            raise ValueError("render_line_width must be a float or int.")
+        self._render_line_width = float(value)
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:

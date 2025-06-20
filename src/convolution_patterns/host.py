@@ -1,13 +1,12 @@
 import asyncio
-import os
 
 from convolution_patterns.config.config import Config
 from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.models.command_line_args import CommandLineArgs
 from convolution_patterns.pipelines.ingestion_pipeline import IngestionPipeline
+from convolution_patterns.pipelines.render_image_pipeline import RenderImagePipeline
 from convolution_patterns.pipelines.train_pipeline import TrainPipeline
-
 
 logging = LoggerManager.get_logger(__name__)
 
@@ -59,9 +58,16 @@ class Host:
             elif self.args.command == "train":
                 logging.info("🧠 Executing model training workflow.")
                 await self.run_training()
+
+            elif self.args.command == "render-images":
+                logging.info("🎨 Executing image rendering workflow.")
+                await self.run_render_images()
+
             else:
                 logging.error("No valid subcommand provided.")
-                raise ValueError("Please specify a valid subcommand: 'ingest' or 'train'.")
+                raise ValueError(
+                    "Please specify a valid subcommand: 'ingest', 'train', or 'render-images'."
+                )
 
         except CustomException as e:
             logging.error("A custom error occurred during host operations: %s", e)
@@ -77,16 +83,16 @@ class Host:
         Run the ingestion pipeline from raw images to processed split outputs and metadata.
         """
         try:
-            from convolution_patterns.pipelines.ingestion_pipeline import IngestionPipeline
-
             logging.info("📦 Starting ingestion pipeline...")
             pipeline = IngestionPipeline()
             results = pipeline.run_pipeline()
 
-            logging.info(f"✅ Ingestion completed with metadata path: {results['metadata_path']}")
+            logging.info(
+                f"✅ Ingestion completed with metadata path: {results['metadata_path']}"
+            )
 
         except Exception as e:
-            raise CustomException(e)
+            raise CustomException(e) from e
 
     async def run_training(self):
         """
@@ -101,4 +107,22 @@ class Host:
             logging.info("✅ Model training completed successfully.")
 
         except Exception as e:
-            raise CustomException(e)
+            raise CustomException(e) from e
+
+    async def run_render_images(self):
+        """
+        Run the image rendering pipeline from indicator data to chart images.
+        """
+        try:
+            logging.info("🎨 Initializing render-images pipeline...")
+
+            pipeline = RenderImagePipeline()
+            results = pipeline.run()
+
+            logging.info(
+                f"✅ Image rendering completed. Images saved to: {results.get('output_dir', 'N/A')}"
+            )
+            logging.info(f"📋 Manifest saved to: {results.get('manifest_path', 'N/A')}")
+
+        except Exception as e:
+            raise CustomException(e) from e
