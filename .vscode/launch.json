@@ -50,9 +50,14 @@
         "--config",
         "configs/render_config.yaml",
         "--input",
-        "./examples/AUD_JPY_processed_signals.csv",
+        //"./examples/AUD_JPY_processed_signals.csv",
+        "artifacts/data_windows/AUD_JPY/2025-06-10/data_20250430_20250610.json",
         "--output-dir",
-        "./data/rendered/AUDCHF"
+        "./data/rendered/AUD_JPY/2025-06-10/",
+        "--manifest",
+        "./data/rendered/AUD_JPY/2025-06-10/manifest.csv",
+        "--image-margin",
+        "25"
       ]
     }
   ]
