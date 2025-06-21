@@ -51,3 +51,4 @@ class CommandLineArgs:
     image_format: str = "png"  # Output image format: 'png', 'jpg', or 'numpy'
     include_close: bool = True  # Include Close price series in rendered charts
     line_width: Optional[float] = None
+    image_margin: int = 0  # Image margin/padding in pixels

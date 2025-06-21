@@ -1,9 +1,5 @@
-"""
-PIL-based chart rendering backend with multi-series support, upscaling, and anti-aliasing.
-"""
-
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 from .chart_render_service import (
     COLOR_AHMA,
@@ -33,6 +29,7 @@ class PILRenderBackend(ChartRenderService):
         include_close=True,
         upscale_factor=4,
         line_width=1,
+        image_margin=0,
     ):
         """
         Initialize the PILRenderBackend.
@@ -42,15 +39,32 @@ class PILRenderBackend(ChartRenderService):
             image_format (str): Image format for saving.
             include_close (bool): Whether to include Close price series.
             upscale_factor (int): Render at this multiple, then downscale for anti-aliasing.
+            image_margin (int): Margin/padding in pixels to add around the chart.
         """
         self.image_size = image_size
         self.image_format = image_format
         self.include_close = include_close
         self.upscale_factor = upscale_factor
         self.line_width = line_width
+        self.image_margin = image_margin
+
+        # Content area for chart (subtract margin)
+        if image_margin > 0:
+            self.content_size = (
+                image_size[0] - 2 * image_margin,
+                image_size[1] - 2 * image_margin,
+            )
+            if self.content_size[0] <= 0 or self.content_size[1] <= 0:
+                raise ValueError(
+                    "Image margin %d is too large for image size %s"
+                    % (image_margin, image_size)
+                )
+        else:
+            self.content_size = image_size
+
         self.render_size = (
-            image_size[0] * upscale_factor,
-            image_size[1] * upscale_factor,
+            self.content_size[0] * upscale_factor,
+            self.content_size[1] * upscale_factor,
         )
 
         # Color mapping for different series (convert hex to RGB)
@@ -62,21 +76,17 @@ class PILRenderBackend(ChartRenderService):
         }
 
     def render(self, window_data, **kwargs):
-        """
-        Render a multi-series chart image from data using PIL.
-
-        Args:
-            data (dict): Dictionary mapping series names to numpy arrays.
-            **kwargs: Additional options (include_close, etc.)
-
-        Returns:
-            PIL.Image: The rendered chart as a PIL Image object.
-        """
         include_close = kwargs.get("include_close", self.include_close)
         line_width = kwargs.get("line_width", self.line_width)
+        image_margin = kwargs.get("image_margin", self.image_margin)
 
-        # Create upscaled image for anti-aliasing
-        img = Image.new("RGB", self.render_size, "white")
+        # Use content area for chart
+        render_size = (
+            self.content_size[0] * self.upscale_factor,
+            self.content_size[1] * self.upscale_factor,
+        )
+
+        img = Image.new("RGB", render_size, "white")
         draw = ImageDraw.Draw(img)
 
         # Filter and order series
@@ -91,14 +101,19 @@ class PILRenderBackend(ChartRenderService):
 
         if not series_to_plot:
             # Return blank image if no series to plot
-            return img.resize(self.image_size, Image.LANCZOS)
+            final_img = img.resize(self.content_size, Image.LANCZOS)
+            if image_margin > 0:
+                final_img = ImageOps.expand(
+                    final_img, border=image_margin, fill="white"
+                )
+            return final_img.resize(self.image_size, Image.LANCZOS)
 
         # Get all data values for global min/max
         all_values = np.concatenate([window_data[name] for name in series_to_plot])
         global_min, global_max = all_values.min(), all_values.max()
         value_range = global_max - global_min + 1e-8
 
-        width, height = self.render_size
+        width, height = render_size
 
         # Plot each series
         for series_name in series_to_plot:
@@ -125,7 +140,14 @@ class PILRenderBackend(ChartRenderService):
                 )
 
         # Downscale for anti-aliasing
-        final_img = img.resize(self.image_size, Image.LANCZOS)
+        final_img = img.resize(self.content_size, Image.LANCZOS)
+
+        # Add margin if needed
+        if image_margin > 0:
+            final_img = ImageOps.expand(final_img, border=image_margin, fill="white")
+
+        # Ensure final size matches requested
+        final_img = final_img.resize(self.image_size, Image.LANCZOS)
         return final_img
 
     def save(self, image, path):

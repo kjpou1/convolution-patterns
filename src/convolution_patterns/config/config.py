@@ -121,6 +121,7 @@ class Config(metaclass=SingletonMeta):
         ).strip().lower() in ["1", "true", "yes"]
 
         self._render_line_width = float(os.getenv("RENDER_LINE_WIDTH", "1.5"))
+        self._render_image_margin = int(os.getenv("RENDER_IMAGE_MARGIN", "0"))
 
         self._ensure_directories_exist()
         Config._is_initialized = True
@@ -226,6 +227,12 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'render_line_width' from CLI: {args.line_width}"
             )
             self.render_line_width = args.line_width
+
+        if _was_explicit(args, "image_margin"):
+            print(
+                f"[Config] Overriding 'render_image_margin' from CLI: {self._render_image_margin} → {args.image_margin}"
+            )
+            self.render_image_margin = args.image_margin
 
     def load_from_yaml(self, path: str):
         """
@@ -379,6 +386,17 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'render_line_width': {self._render_line_width} → {val}"
             )
             self.render_line_width = val
+
+        if "image_margin" in render_config:
+            val = render_config["image_margin"]
+            if not isinstance(val, int):
+                raise ValueError(
+                    "render_images.image_margin from YAML must be an integer."
+                )
+            print(
+                f"[Config] Overriding 'render_image_margin': {self._render_image_margin} → {val}"
+            )
+            self.render_image_margin = val
 
     # === Existing Properties (unchanged) ===
     @property
@@ -657,6 +675,16 @@ class Config(metaclass=SingletonMeta):
         if not isinstance(value, (float, int)):
             raise ValueError("render_line_width must be a float or int.")
         self._render_line_width = float(value)
+
+    @property
+    def render_image_margin(self) -> int:
+        return self._render_image_margin
+
+    @render_image_margin.setter
+    def render_image_margin(self, value: int):
+        if not isinstance(value, int):
+            raise ValueError("render_image_margin must be an integer.")
+        self._render_image_margin = value
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:

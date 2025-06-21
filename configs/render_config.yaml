@@ -6,9 +6,10 @@ render_images:
   #output_dir: "artifacts/data/rendered"
   #manifest_path: "artifacts/data/rendered/manifest.csv"
   window_sizes: [21, 19, 17, 15, 13, 11, 9, 7, 5]
-  backend: "pil"
-  #backend: "matplotlib"
+  #backend: "pil"
+  backend: "matplotlib"
   image_format: "png"
   include_close: no  # or False, depending on your preference
+  image_margin: 5
 
 image_size: [224, 224]

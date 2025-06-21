@@ -44,6 +44,7 @@ class RenderImagePipeline:
         self.image_size = self.config.image_size
         self.include_close = self.config.include_close
         self.line_width = self.config.render_line_width
+        self.image_margin = self.config.render_image_margin
 
         # Renderer will be set based on backend
         self.renderer = None
@@ -122,34 +123,71 @@ class RenderImagePipeline:
             image_format=self.image_format,
             include_close=self.include_close,
             line_width=self.line_width,
+            image_margin=self.image_margin,
         )
         logging.info(
-            "🔧 Initialized %s renderer (include_close=%s)",
+            "🔧 Initialized %s renderer (include_close=%s, image_margin=%d)",
             self.backend,
             self.include_close,
+            self.image_margin,
         )
 
     def _load_indicator_data(self) -> pd.DataFrame:
         """
         Load indicator data from input source.
+        Handles both flat JSON/CSV files and nested JSON with 'data' and 'metadata' structure.
 
         Returns:
             DataFrame containing indicator data
         """
         try:
             if self.input_path.endswith(".csv"):
+                # Load CSV file directly
                 data = pd.read_csv(self.input_path, encoding="utf-8")
-            elif self.input_path.endswith(".json"):
-                data = pd.read_json(self.input_path, encoding="utf-8")
-            else:
-                # Try CSV as default
-                data = pd.read_csv(self.input_path, encoding="utf-8")
+                logging.info("📊 Loaded CSV with %d rows of indicator data", len(data))
 
-            logging.info("📊 Loaded %d rows of indicator data", len(data))
+            elif self.input_path.endswith(".json"):
+                # Load JSON file - could be flat or nested structure
+                raw_data = pd.read_json(self.input_path, encoding="utf-8")
+
+                # Check if JSON has nested structure with 'data' and 'metadata' keys
+                if "data" in raw_data.columns:
+                    # Nested structure: extract the 'data' portion
+                    # raw_data["data"] contains the actual indicator data
+                    data = pd.DataFrame(raw_data["data"].to_dict())
+                    logging.info(
+                        "📊 Loaded nested JSON with %d rows of indicator data from 'data' section",
+                        len(data),
+                    )
+                else:
+                    # Flat structure: use the DataFrame as-is
+                    data = raw_data
+                    logging.info(
+                        "📊 Loaded flat JSON with %d rows of indicator data", len(data)
+                    )
+
+            else:
+                # Unknown file extension - try CSV as fallback
+                logging.warning(
+                    "⚠️ Unknown file extension for %s, attempting CSV load",
+                    self.input_path,
+                )
+                data = pd.read_csv(self.input_path, encoding="utf-8")
+                logging.info(
+                    "📊 Loaded fallback CSV with %d rows of indicator data", len(data)
+                )
+
+            # Validate that we have some data
+            if data.empty:
+                raise ValueError("Loaded data is empty")
+
             return data
 
         except Exception as e:
-            raise CustomException(f"Failed to load indicator data: {e}") from e
+            logging.error(
+                "❌ Failed to load indicator data from %s: %s", self.input_path, str(e)
+            )
+            raise CustomException("Failed to load indicator data: %s" % str(e)) from e
 
     def _dataframe_to_arrays(
         self, df: pd.DataFrame, required_columns: Optional[List[str]] = None
@@ -238,6 +276,7 @@ class RenderImagePipeline:
                     "image_size": f"{self.image_size[0]}x{self.image_size[1]}",
                     "include_close": self.include_close,
                     "line_width": self.line_width,
+                    "image_margin": self.image_margin,
                 }
 
                 manifest_entries.append(manifest_entry)

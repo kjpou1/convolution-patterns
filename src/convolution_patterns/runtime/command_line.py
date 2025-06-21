@@ -167,6 +167,13 @@ class CommandLine:
         )
 
         render_parser.add_argument(
+            "--image-margin",
+            type=int,
+            default=0,
+            help="Image margin/padding in pixels (default: 0)",
+        )
+
+        render_parser.add_argument(
             "--include-close",
             action="store_true",
             default=True,
@@ -257,6 +264,7 @@ class CommandLine:
             image_format=getattr(args, "image_format", "png"),
             include_close=getattr(args, "include_close", True),
             line_width=getattr(args, "line_width", 1.5),
+            image_margin=getattr(args, "image_margin", 0),
         )
 
     @staticmethod
