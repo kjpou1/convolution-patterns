@@ -17,12 +17,17 @@ logger = logging.getLogger(__name__)
 # Constants
 DATA_ROOT = "../artifacts/data/rendered"
 CLASS_LABELS = [
-    "Bullish_Trend_Reversal",
-    "Bearish_Trend_Reversal",
-    "LCC_Uptrend",
-    "LCC_Downtrend",
-    "None_Uptrend",
-    "None_Downtrend",
+    "Trend_Change_Bull",  # Bullish trend reversal
+    "Trend_Change_Bear",  # Bearish trend reversal
+    "CT_Uptrend",  # Continuation uptrend
+    "CT_Downtrend",  # Continuation downtrend
+    "PB_Uptrend",  # Pullback within an uptrend
+    "PB_Downtrend",  # Pullback within a downtrend
+    "Uptrend_Convergence",  # Uptrend: indicators first diverge, then converge
+    "Downtrend_Convergence",  # Downtrend: indicators first diverge, then converge
+    "Uptrend_No_Convergence",  # Uptrend: indicators do not converge
+    "Downtrend_No_Convergence",  # Downtrend: indicators do not converge
+    "No_Pattern",  # No clear pattern detected (optional)
 ]
 
 
@@ -214,35 +219,46 @@ def main():
         st.subheader("🖼️ Select Image")
         row = st.columns([6, 1, 1])  # Wide selectbox, then two arrow buttons
 
+        # --- Image Navigation State ---
+        if "img_idx" not in st.session_state:
+            st.session_state.img_idx = 0
+
+        # Navigation UI
         with row[0]:
-            selected_image = st.selectbox(
+            selected_idx = st.selectbox(
                 "Choose a chart image:",
-                sorted_images,
+                range(len(sorted_images)),
+                format_func=lambda i: sorted_images[i],
                 index=st.session_state.img_idx,
                 key="image_selectbox",
             )
-            # Sync index if selectbox changes
-            if selected_image != st.session_state.selected_image:
-                st.session_state.selected_image = selected_image
-                st.session_state.img_idx = sorted_images.index(selected_image)
+            # Only update img_idx if selectbox changed
+            if selected_idx != st.session_state.img_idx:
+                st.session_state.img_idx = selected_idx
 
         with row[1]:
             if st.button("⬅️", key="prev_img"):
                 st.session_state.img_idx = (st.session_state.img_idx - 1) % len(
                     sorted_images
                 )
-                st.session_state.selected_image = sorted_images[
-                    st.session_state.img_idx
-                ]
+                st.rerun()
 
         with row[2]:
             if st.button("➡️", key="next_img"):
                 st.session_state.img_idx = (st.session_state.img_idx + 1) % len(
                     sorted_images
                 )
-                st.session_state.selected_image = sorted_images[
-                    st.session_state.img_idx
-                ]
+                st.rerun()
+
+        # After all navigation, set selected_image from img_idx
+        st.session_state.selected_image = sorted_images[st.session_state.img_idx]
+
+        # For debugging
+        logger.info(
+            "img_idx: %d, selected_image: %s",
+            st.session_state.img_idx,
+            st.session_state.selected_image,
+        )
 
         st.metric(
             "Progress",
