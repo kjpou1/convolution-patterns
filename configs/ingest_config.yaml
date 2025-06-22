@@ -1,5 +1,6 @@
-staging_dir: ./lc_classifier/lc_staging
-preserve_raw: yes
+#staging_dir: ./lc_classifier/lc_staging
+staging_dir: ./artifacts/staging
+preserve_raw: no
 label_mode: pattern_only
 split_ratios: [80, 10, 10]
 random_seed: 123
