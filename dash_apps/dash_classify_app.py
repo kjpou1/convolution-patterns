@@ -191,21 +191,59 @@ def main():
     else:
         sorted_images = images
 
+    # --- Image Navigation State ---
+    if "img_idx" not in st.session_state:
+        st.session_state.img_idx = 0
+    if (
+        "selected_image" not in st.session_state
+        or st.session_state.selected_image not in sorted_images
+    ):
+        st.session_state.selected_image = sorted_images[0]
+        st.session_state.img_idx = 0
+
+    total_images = len(sorted_images)
+    classified_count = sum(
+        1
+        for img in sorted_images
+        if get_current_classification(manifest, img) != "Unclassified"
+    )
+
     col1, col2 = st.columns([2, 1])
 
     with col1:
         st.subheader("🖼️ Select Image")
-        selected_image = st.selectbox(
-            "Choose a chart image:", sorted_images, key="image_selectbox"
-        )
-        st.session_state["selected_image"] = selected_image
+        row = st.columns([6, 1, 1])  # Wide selectbox, then two arrow buttons
 
-        total_images = len(sorted_images)
-        classified_count = sum(
-            1
-            for img in sorted_images
-            if get_current_classification(manifest, img) != "Unclassified"
-        )
+        with row[0]:
+            selected_image = st.selectbox(
+                "Choose a chart image:",
+                sorted_images,
+                index=st.session_state.img_idx,
+                key="image_selectbox",
+            )
+            # Sync index if selectbox changes
+            if selected_image != st.session_state.selected_image:
+                st.session_state.selected_image = selected_image
+                st.session_state.img_idx = sorted_images.index(selected_image)
+
+        with row[1]:
+            if st.button("⬅️", key="prev_img"):
+                st.session_state.img_idx = (st.session_state.img_idx - 1) % len(
+                    sorted_images
+                )
+                st.session_state.selected_image = sorted_images[
+                    st.session_state.img_idx
+                ]
+
+        with row[2]:
+            if st.button("➡️", key="next_img"):
+                st.session_state.img_idx = (st.session_state.img_idx + 1) % len(
+                    sorted_images
+                )
+                st.session_state.selected_image = sorted_images[
+                    st.session_state.img_idx
+                ]
+
         st.metric(
             "Progress",
             f"{classified_count}/{total_images}",
@@ -213,7 +251,9 @@ def main():
         )
 
         st.subheader("🏷️ Classify This Pattern")
-        current_class = get_current_classification(manifest, selected_image)
+        current_class = get_current_classification(
+            manifest, st.session_state.selected_image
+        )
         default_index = 0
         if current_class in CLASS_LABELS:
             default_index = CLASS_LABELS.index(current_class)
@@ -233,12 +273,12 @@ def main():
                 clear_button = st.form_submit_button("🗑️ Clear Classification")
             if submit_button:
                 updated_manifest, success = update_classification(
-                    manifest, selected_image, selected_label
+                    manifest, st.session_state.selected_image, selected_label
                 )
                 if success:
                     if save_manifest(updated_manifest, manifest_path):
                         st.success(
-                            f"✅ Successfully classified '{selected_image}' as '{selected_label}'!"
+                            f"✅ Successfully classified '{st.session_state.selected_image}' as '{selected_label}'!"
                         )
                         st.rerun()
                     else:
@@ -249,11 +289,13 @@ def main():
                     )
             if clear_button:
                 updated_manifest, success = update_classification(
-                    manifest, selected_image, ""
+                    manifest, st.session_state.selected_image, ""
                 )
                 if success:
                     if save_manifest(updated_manifest, manifest_path):
-                        st.success(f"✅ Cleared classification for '{selected_image}'!")
+                        st.success(
+                            f"✅ Cleared classification for '{st.session_state.selected_image}'!"
+                        )
                         st.rerun()
                     else:
                         st.error("❌ Failed to save changes to file.")
@@ -262,20 +304,22 @@ def main():
 
     with col2:
         st.subheader("🔍 Image Preview")
-        image_path = os.path.join(date_path, selected_image)
+        image_path = os.path.join(date_path, st.session_state.selected_image)
         if os.path.exists(image_path):
             st.image(
                 image_path,
-                caption=f"Filename: {selected_image}",
+                caption=f"Filename: {st.session_state.selected_image}",
                 use_container_width=True,
             )
-            current_class = get_current_classification(manifest, selected_image)
+            current_class = get_current_classification(
+                manifest, st.session_state.selected_image
+            )
             if current_class != "Unclassified":
                 st.success(f"✅ Current Classification: **{current_class}**")
             else:
                 st.warning("⏳ This image is unclassified")
         else:
-            st.error(f"❌ Image file not found: {selected_image}")
+            st.error(f"❌ Image file not found: {st.session_state.selected_image}")
 
     st.markdown("---")
     with st.expander("ℹ️ Application Info"):
