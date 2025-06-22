@@ -298,6 +298,12 @@ class ChartPatternDataProcessor:
             render_calls: List of render call information
             script_name: Name of the output script file
         """
+
+        # Create directory if it doesn't exist
+        script_dir = os.path.dirname(script_name)
+        if script_dir:  # Only create if there's actually a directory path
+            os.makedirs(script_dir, exist_ok=True)
+
         script_lines = [
             "#!/bin/bash",
             "# Auto-generated render script for pattern recognition",
@@ -427,8 +433,13 @@ Examples:
 
     parser.add_argument(
         "--script-name",
-        default="render_batch.sh",
-        help="Name of the generated render script (default: render_batch.sh)",
+        default=os.path.join("artifacts", "scripts", "render_batch.sh"),
+        help="Name of the generated render script (default: artifacts/scripts/render_batch.sh)",
+    )
+    parser.add_argument(
+        "--summary-file",
+        default=os.path.join("artifacts", "summaries", "render_calls_summary.json"),
+        help="Name of the summary JSON file (default: artifacts/summaries/render_calls_summary.json)",
     )
 
     parser.add_argument(
@@ -440,12 +451,6 @@ Examples:
         "--end-date",
         type=str,
         help="Only process data up to and including this date (format: YYYY-MM-DD or YYYYMMDD)",
-    )
-
-    parser.add_argument(
-        "--summary-file",
-        default="render_calls_summary.json",
-        help="Name of the summary JSON file (default: render_calls_summary.json)",
     )
 
     parser.add_argument(
@@ -651,6 +656,10 @@ def main():
         )
 
         # Rule 2: UTF-8 encoding requirement
+        script_dir = os.path.dirname(args.script_name)
+        if script_dir:
+            os.makedirs(script_dir, exist_ok=True)
+
         with open(args.script_name, "w", encoding="utf-8") as f:
             f.write("\n".join(script_lines))
 
@@ -680,6 +689,10 @@ def main():
         "render_calls": all_render_calls,
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+
+    summary_dir = os.path.dirname(args.summary_file)
+    if summary_dir:
+        os.makedirs(summary_dir, exist_ok=True)
 
     # Rule 2: UTF-8 encoding requirement
     with open(args.summary_file, "w", encoding="utf-8") as f:
