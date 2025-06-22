@@ -30,6 +30,8 @@ CLASS_LABELS = [
     "No_Pattern",  # No clear pattern detected (optional)
 ]
 
+DEFAULT_CLASSIFICATION = "No_Pattern"  # Default classification for unclassified images
+
 
 def list_instruments(data_root):
     try:
@@ -270,7 +272,7 @@ def main():
         current_class = get_current_classification(
             manifest, st.session_state.selected_image
         )
-        default_index = 0
+        default_index = CLASS_LABELS.index(DEFAULT_CLASSIFICATION)
         if current_class in CLASS_LABELS:
             default_index = CLASS_LABELS.index(current_class)
         with st.form(key="classification_form"):
