@@ -94,6 +94,12 @@ class CommandLine:
         )
 
         train_parser.add_argument(
+            "--model-config",
+            type=str,
+            help="Path to model config YAML (defines backbone, head, loss, etc.)",
+        )
+
+        train_parser.add_argument(
             "--cache",
             action="store_true",
             help="Enable dataset caching to speed up training (in-memory only)",
@@ -254,6 +260,7 @@ class CommandLine:
             batch_size=getattr(args, "batch_size", 32),
             epochs=getattr(args, "epochs", 10),
             transform_config_path=getattr(args, "transform_config", None),
+            model_config_path=getattr(args, "model_config", None),
             cache=getattr(args, "cache", False),
             # Render-images args
             input_path=getattr(args, "input", None),

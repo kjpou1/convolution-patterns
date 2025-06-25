@@ -38,6 +38,9 @@ class CommandLineArgs:
     transform_config_path: Optional[str] = (
         None  # Optional path to YAML transform config file
     )
+    model_config_path: Optional[str] = (
+        None  # Optional path to YAML transform config file
+    )
     cache: bool = False  # Enable dataset caching during training
 
     # === Render-Images Pipeline ===

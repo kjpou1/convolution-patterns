@@ -181,6 +181,18 @@ class Config(metaclass=SingletonMeta):
             print(f"[Config] Overriding 'cache' from CLI: {self._cache} → {args.cache}")
             self.cache = args.cache
 
+        if _was_explicit(args, "transform_config_path"):
+            print(
+                f"[Config] Overriding 'transform_config_path' from CLI: {args.transform_config_path}"
+            )
+            self.transform_config_path = args.transform_config_path
+
+        if _was_explicit(args, "model_config"):
+            print(
+                f"[Config] Overriding 'model_config_path' from CLI: {args.model_config_path}"
+            )
+            self.model_config_path = args.model_config_path
+
         # === Render-Images CLI Overrides ===
         if _was_explicit(args, "input"):
             print(
@@ -312,6 +324,18 @@ class Config(metaclass=SingletonMeta):
         if "cache" in data:
             print(f"[Config] Overriding 'cache': {self._cache} → {data['cache']}")
             self.cache = data["cache"]
+
+        if "transform_config" in data:
+            print(
+                f"[Config] Overriding 'transform_config_path': {getattr(self, '_transform_config_path', None)} → {data['transform_config_path']}"
+            )
+            self.transform_config_path = data["transform_config"]
+
+        if "model_config" in data:
+            print(
+                f"[Config] Overriding 'model_config_path': {getattr(self, '_model_config_path', None)} → {data['model_config_path']}"
+            )
+            self.model_config_path = data["model_config"]
 
         # === Render-Images YAML Config ===
         render_config = data.get("render_images", {})

@@ -1,20 +1,9 @@
 model:
-  name: "EffNetB0_PatternClassifier"
-  backbone: EfficientNetB0
+  name: "MobileNetV3_DeepClassifier"
+  backbone: MobileNetV3Large
   input_shape: [224, 224, 3]
-  freeze_backbone: false
-  # custom_head:
-  #   layers:
-  #     - type: Dropout
-  #       rate: 0.3
-  #     - type: Dense
-  #       units: 256
-  #       activation: relu
-  #     - type: Dropout
-  #       rate: 0.2
-  #     - type: Dense
-  #       units: num_classes
-  #       activation: softmax
+  freeze_backbone: true
+
   custom_head:
     layers:
       - type: GlobalAveragePooling2D
@@ -35,7 +24,6 @@ model:
       - type: Dense
         units: num_classes
         activation: softmax
-
 
 training:
   optimizer: adam
