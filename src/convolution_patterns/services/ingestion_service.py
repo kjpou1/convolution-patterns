@@ -1,13 +1,16 @@
 import os
-import sys
-import shutil
 import random
+import shutil
+import sys
+from typing import Dict, List
 
 import pandas as pd
+from PIL import Image
 
 from convolution_patterns.config.config import Config
 from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
+from convolution_patterns.services.augmentation_service import AugmentationService
 from convolution_patterns.services.splitter_service import SplitterService
 
 logging = LoggerManager.get_logger(__name__)
@@ -24,10 +27,12 @@ class IngestionService:
 
         if not self.config.staging_dir:
             raise ValueError("Missing staging_dir in configuration.")
-        
+
         self.staging_dir = self.config.staging_dir
         self.raw_data_dir = self.config.RAW_DATA_DIR
-        self.label_mode = self.config.label_mode  # 'pattern_only' or 'instrument_specific'
+        self.label_mode = (
+            self.config.label_mode
+        )  # 'pattern_only' or 'instrument_specific'
 
     def copy_raw_images(self):
         """
@@ -35,7 +40,9 @@ class IngestionService:
         """
         try:
             if not os.path.exists(self.staging_dir):
-                raise FileNotFoundError(f"Staging directory not found or not set: {self.config.staging_dir}")
+                raise FileNotFoundError(
+                    f"Staging directory not found or not set: {self.config.staging_dir}"
+                )
 
             if os.path.exists(self.raw_data_dir):
                 shutil.rmtree(self.raw_data_dir)
@@ -43,6 +50,35 @@ class IngestionService:
             logging.info(f"Copied raw images to: {self.raw_data_dir}")
         except Exception as e:
             raise CustomException(e, sys) from e
+
+    def augment_training_data(
+        self, train_df: pd.DataFrame, target_minimum: int = 50
+    ) -> pd.DataFrame:
+        """
+        Applies vertical flip + random augmentations to training data.
+        Returns augmented DataFrame to append to train split.
+        """
+        class_names = sorted(train_df["label"].unique())
+        augmenter = AugmentationService(class_names, image_size=self.config.image_size)
+
+        logging.info("🔄 Applying vertical flips (label-safe).")
+        vflip_df = augmenter.generate_augmented_images(
+            train_df,
+            mode="vflip",
+            output_base_dir=self.raw_data_dir,  # Always target raw/
+        )
+
+        logging.info("🎨 Applying random augmentations to underrepresented classes.")
+        rand_df = augmenter.generate_augmented_images(
+            train_df,
+            mode="random",
+            target_minimum=target_minimum,
+            output_base_dir=self.raw_data_dir,
+        )
+
+        augmented_df = pd.concat([vflip_df, rand_df], ignore_index=True)
+        logging.info(f"✅ Augmentation complete. {len(augmented_df)} new images.")
+        return augmented_df
 
     def split_dataset(self):
         """
@@ -69,23 +105,40 @@ class IngestionService:
                         continue
                     for filename in os.listdir(pattern_path):
                         if filename.endswith(".png"):
-                            label = pattern_type if self.label_mode == "pattern_only" else f"{instrument}__{pattern_type}"
-                            records.append({
-                                "instrument": instrument,
-                                "pattern_type": pattern_type,
-                                "label": label,
-                                "filename": filename,
-                                "source_path": os.path.join(pattern_path, filename),
-                            })
+                            label = (
+                                pattern_type
+                                if self.label_mode == "pattern_only"
+                                else f"{instrument}__{pattern_type}"
+                            )
+                            records.append(
+                                {
+                                    "instrument": instrument,
+                                    "pattern_type": pattern_type,
+                                    "label": label,
+                                    "filename": filename,
+                                    "source_path": os.path.join(pattern_path, filename),
+                                }
+                            )
 
             if not records:
-                raise ValueError("No image records found for ingestion. Ensure the staging/raw directory is populated.")
+                raise ValueError(
+                    "No image records found for ingestion. Ensure the staging/raw directory is populated."
+                )
 
             splitter = SplitterService(
-                split_ratios=self.config.split_ratios,
-                seed=self.config.random_seed
+                split_ratios=self.config.split_ratios, seed=self.config.random_seed
             )
-            return splitter.split(records)
+
+            splits = splitter.split(records)
+
+            # Convert splits to DataFrames for easier augmentation handling
+            splits_df = {
+                k: pd.DataFrame(v) if not isinstance(v, pd.DataFrame) else v
+                for k, v in splits.items()
+            }
+            return splits_df
+
+            # return splitter.split(records)
 
         except Exception as e:
             raise CustomException(e, sys) from e
@@ -98,9 +151,7 @@ class IngestionService:
             for split_name, df in split_result.items():
                 for record in df.to_dict(orient="records"):
                     dst_dir = os.path.join(
-                        self.config.PROCESSED_DATA_DIR,
-                        split_name,
-                        record["label"]
+                        self.config.PROCESSED_DATA_DIR, split_name, record["label"]
                     )
                     os.makedirs(dst_dir, exist_ok=True)
                     dst_path = os.path.join(dst_dir, record["filename"])
@@ -120,7 +171,14 @@ class IngestionService:
                     all_records.append(rec)
 
             df = pd.DataFrame(all_records)
-            metadata_path = os.path.join(self.config.METADATA_DIR, "pattern_metadata.csv")
+            columns = list(df.columns)
+            for col in ["augmentation", "label_changed"]:
+                if col not in columns:
+                    df[col] = None
+
+            metadata_path = os.path.join(
+                self.config.METADATA_DIR, "pattern_metadata.csv"
+            )
             os.makedirs(os.path.dirname(metadata_path), exist_ok=True)
             df.to_csv(metadata_path, index=False)
             return metadata_path

@@ -1,13 +1,13 @@
 import os
 import sys
 
+import pandas as pd
+
 from convolution_patterns.config.config import Config
 from convolution_patterns.exception import CustomException
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.services.ingestion_service import IngestionService
-
 from src.convolution_patterns.utils.path_utils import is_raw_snapshot_empty
-
 
 logging = LoggerManager.get_logger(__name__)
 
@@ -34,12 +34,13 @@ class IngestionPipeline:
         try:
             logging.info("🚀 Starting ingestion pipeline.")
 
-            
             raw_empty = is_raw_snapshot_empty(self.raw_data_dir)
 
             if not self.config.preserve_raw or raw_empty:
                 if self.config.preserve_raw and raw_empty:
-                    logging.warning("⚠️ Raw snapshot exists but is empty. Recopying from staging...")
+                    logging.warning(
+                        "⚠️ Raw snapshot exists but is empty. Recopying from staging..."
+                    )
 
                 logging.info("📂 Copying raw images from staging → raw snapshot")
                 self.ingestion_service.copy_raw_images()
@@ -50,6 +51,17 @@ class IngestionPipeline:
             logging.info("🔄 Parsing directory and splitting dataset.")
             split_result = self.ingestion_service.split_dataset()
             logging.info("✅ Dataset split into train/val/test.")
+
+            logging.info("🧠 Augmenting training data using AugmentationService.")
+            augmented_train_df = self.ingestion_service.augment_training_data(
+                split_result["train"]
+            )
+            split_result["train"] = pd.concat(
+                [split_result["train"], augmented_train_df], ignore_index=True
+            )
+            logging.info(
+                f"✅ New training count after augmentation: {len(split_result['train'])}"
+            )
 
             logging.info("📁 Writing processed dataset to artifacts/data/processed/")
             self.ingestion_service.write_processed_dataset(split_result)
