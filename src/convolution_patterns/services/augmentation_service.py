@@ -149,6 +149,9 @@ class AugmentationService:
             if target_minimum is None:
                 raise ValueError("target_minimum is required for mode='random'")
 
+            # 🚫 Filter out any already augmented images
+            df = df[~df["filename"].str.contains("_vflip|_aug_")].copy()
+
             counts = df["label"].value_counts().to_dict()
             for label, count in counts.items():
                 if count >= target_minimum:
