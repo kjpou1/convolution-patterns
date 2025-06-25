@@ -1,16 +1,18 @@
-import os
 import json
-import pandas as pd
+import os
+import pathlib
+
 import matplotlib.pyplot as plt
+import pandas as pd
 import seaborn as sns
 import tensorflow as tf
-from sklearn.metrics import confusion_matrix, classification_report
-import pathlib
+from sklearn.metrics import classification_report, confusion_matrix
 
 from convolution_patterns.config.config import Config
 from convolution_patterns.logger_manager import LoggerManager
 
 logging = LoggerManager.get_logger(__name__)
+
 
 class TrainingLoggerService:
     def __init__(self, model_name: str):
@@ -32,7 +34,9 @@ class TrainingLoggerService:
         self._update_latest_symlink(self.model_base_dir, self.model_dir)
 
         # Versioned report dir: reports/training/{model_name}/vN/
-        self.report_base_dir = os.path.join(self.config.REPORTS_DIR, "training", model_name)
+        self.report_base_dir = os.path.join(
+            self.config.REPORTS_DIR, "training", model_name
+        )
         self.report_dir = self._get_next_version_dir(self.report_base_dir)
         os.makedirs(self.report_dir, exist_ok=True)
 
@@ -40,8 +44,12 @@ class TrainingLoggerService:
         self.loss_plot_path = os.path.join(self.report_dir, "loss_plot.png")
         self.accuracy_plot_path = os.path.join(self.report_dir, "accuracy_plot.png")
         self.metrics_json_path = os.path.join(self.report_dir, "metrics.json")
-        self.confusion_matrix_path = os.path.join(self.report_dir, "confusion_matrix.png")
-        self.classification_report_path = os.path.join(self.report_dir, "classification_report.json")
+        self.confusion_matrix_path = os.path.join(
+            self.report_dir, "confusion_matrix.png"
+        )
+        self.classification_report_path = os.path.join(
+            self.report_dir, "classification_report.json"
+        )
 
         logging.info(f"Training artifacts will be saved under versioned directories:")
         logging.info(f"Model dir: {self.model_dir}")
@@ -50,7 +58,9 @@ class TrainingLoggerService:
     def _get_next_version_dir(self, base_dir: str) -> str:
         if not os.path.exists(base_dir):
             return os.path.join(base_dir, "v1")
-        existing = [d for d in os.listdir(base_dir) if d.startswith("v") and d[1:].isdigit()]
+        existing = [
+            d for d in os.listdir(base_dir) if d.startswith("v") and d[1:].isdigit()
+        ]
         versions = [int(d[1:]) for d in existing]
         next_version = max(versions, default=0) + 1
         return os.path.join(base_dir, f"v{next_version}")
@@ -92,6 +102,11 @@ class TrainingLoggerService:
         if "accuracy" in history_dict or "acc" in history_dict:
             acc_key = "accuracy" if "accuracy" in history_dict else "acc"
             _plot(acc_key, "Training & Validation Accuracy", self.accuracy_plot_path)
+        additional_metrics = ["precision", "recall", "auc"]
+        for metric in additional_metrics:
+            if metric in history_dict:
+                plot_path = os.path.join(self.report_dir, f"{metric}_plot.png")
+                _plot(metric, f"Training & Validation {metric.capitalize()}", plot_path)
 
     def save_model(self, model: tf.keras.Model):
         model.save(self.model_file)
@@ -112,8 +127,14 @@ class TrainingLoggerService:
         # Confusion matrix
         cm = confusion_matrix(y_true, y_pred, labels=range(len(label_names)))
         plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                    xticklabels=label_names, yticklabels=label_names)
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=label_names,
+            yticklabels=label_names,
+        )
         plt.title("Confusion Matrix")
         plt.xlabel("Predicted")
         plt.ylabel("True")
@@ -124,11 +145,10 @@ class TrainingLoggerService:
 
         # Classification report
         report = classification_report(
-            y_true, y_pred,
-            target_names=label_names,
-            output_dict=True,
-            zero_division=0
+            y_true, y_pred, target_names=label_names, output_dict=True, zero_division=0
         )
         with open(self.classification_report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
-        logging.info(f"Saved classification report to {self.classification_report_path}")
+        logging.info(
+            f"Saved classification report to {self.classification_report_path}"
+        )
