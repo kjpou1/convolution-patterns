@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 def build_layer(x, layer_cfg: dict, num_classes: int):
     layer_type = layer_cfg.get("type")
 
@@ -9,13 +10,15 @@ def build_layer(x, layer_cfg: dict, num_classes: int):
         layer_cfg["units"] = num_classes
 
     kwargs = {k: v for k, v in layer_cfg.items() if k != "type"}
-    
+
     if layer_type == "Dense":
         return tf.keras.layers.Dense(**kwargs)(x)
     elif layer_type == "Dropout":
         return tf.keras.layers.Dropout(**kwargs)(x)
     elif layer_type == "BatchNormalization":
         return tf.keras.layers.BatchNormalization(**kwargs)(x)
+    elif layer_type == "LayerNormalization":
+        return tf.keras.layers.LayerNormalization(**kwargs)(x)
     elif layer_type == "Activation":
         return tf.keras.layers.Activation(**kwargs)(x)
     elif layer_type == "GlobalAveragePooling2D":
