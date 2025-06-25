@@ -67,41 +67,74 @@ class CallbacksService:
         logging.info("Loaded callbacks config from %s", self.config_path)
         return config
 
+    class DebugCallback(tf.keras.callbacks.Callback):
+        def on_epoch_end(self, epoch, logs=None):
+            logs = logs or {}
+            for metric_name, metric_value in logs.items():
+                logging.info(
+                    "DebugCallback - Epoch %d metric '%s' type: %s value: %s",
+                    epoch,
+                    metric_name,
+                    type(metric_value),
+                    metric_value,
+                )
+
+    def _parse_early_stopping_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        parsed = {}
+        parsed["patience"] = self._parse_int(params.get("patience"), 10)
+        parsed["min_delta"] = self._parse_float(params.get("min_delta"), 0.0)
+        parsed["verbose"] = self._parse_int(params.get("verbose"), 0)
+        # Pass through other params as is
+        for key in params:
+            if key not in parsed:
+                parsed[key] = params[key]
+        return parsed
+
+    def _parse_lr_scheduler_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        parsed = {}
+        parsed["factor"] = self._parse_float(params.get("factor"), 0.5)
+        parsed["patience"] = self._parse_int(params.get("patience"), 5)
+        parsed["min_lr"] = self._parse_float(params.get("min_lr"), 1e-6)
+        parsed["verbose"] = self._parse_int(params.get("verbose"), 0)
+        # Pass through other params as is
+        for key in params:
+            if key not in parsed:
+                parsed[key] = params[key]
+        return parsed
+
+    def _parse_model_checkpoint_params(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        # No numeric parsing needed here, but you can add if needed
+        # Also handle filename->filepath mapping if you want
+        if "filename" in params:
+            params["filepath"] = params.pop("filename")
+        return params
+
     def get_callbacks(self) -> List[tf.keras.callbacks.Callback]:
-        """
-        Instantiate and return the list of TensorFlow callbacks based on the config.
-
-        Returns:
-            List[tf.keras.callbacks.Callback]: List of instantiated callbacks.
-
-        Notes:
-            - Only callbacks with 'enabled: true' in config are instantiated.
-            - Maps config keys to TensorFlow callback classes.
-            - Handles parameter name mapping (e.g., 'filename' -> 'filepath' for ModelCheckpoint).
-            - Logs errors but continues processing other callbacks.
-        """
         self.callbacks.clear()
 
-        # Mapping from config keys to TensorFlow callback classes
         callback_map = {
-            "early_stopping": tf.keras.callbacks.EarlyStopping,
-            "lr_scheduler": tf.keras.callbacks.ReduceLROnPlateau,
-            "model_checkpoint": tf.keras.callbacks.ModelCheckpoint,
-            # Add more callbacks here as needed
+            "early_stopping": (
+                tf.keras.callbacks.EarlyStopping,
+                self._parse_early_stopping_params,
+            ),
+            "lr_scheduler": (
+                tf.keras.callbacks.ReduceLROnPlateau,
+                self._parse_lr_scheduler_params,
+            ),
+            "model_checkpoint": (
+                tf.keras.callbacks.ModelCheckpoint,
+                self._parse_model_checkpoint_params,
+            ),
         }
 
-        for cb_key, cb_class in callback_map.items():
+        for cb_key, (cb_class, parse_fn) in callback_map.items():
             cb_cfg = self.config.get(cb_key, {})
             if not cb_cfg.get("enabled", False):
                 logging.debug("Callback '%s' is disabled or missing in config", cb_key)
                 continue
 
-            # Prepare parameters, excluding 'enabled'
             cb_params = {k: v for k, v in cb_cfg.items() if k != "enabled"}
-
-            # Special parameter mapping for ModelCheckpoint
-            if cb_key == "model_checkpoint" and "filename" in cb_params:
-                cb_params["filepath"] = cb_params.pop("filename")
+            cb_params = parse_fn(cb_params)
 
             try:
                 callback_instance = cb_class(**cb_params)
@@ -117,4 +150,19 @@ class CallbacksService:
                     e,
                 )
 
+        # self.callbacks.append(self.DebugCallback())
+        # logging.info("Added DebugCallback to callbacks list")
+
         return self.callbacks
+
+    def _parse_float(self, value, default):
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def _parse_int(self, value, default):
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default

@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+from sklearn.utils.class_weight import compute_class_weight
 
 from convolution_patterns.config.config import Config
 from convolution_patterns.logger_manager import LoggerManager
@@ -36,6 +37,24 @@ class TrainPipeline:
             )  # assuming one-hot encoded
 
         return np.array(y_true), np.array(y_pred)
+
+    # Step 1: Extract integer labels from train_ds
+    def _extract_integer_labels(self, dataset):
+        labels = []
+        for _, one_hot_labels in dataset.unbatch():
+            label = tf.argmax(one_hot_labels).numpy()
+            labels.append(label)
+        return np.array(labels)
+
+    def _make_add_sample_weights_fn(self, class_weights):
+        class_weights_tensor = tf.constant(class_weights, dtype=tf.float32)
+
+        def add_sample_weights(images, one_hot_labels):
+            labels = tf.argmax(one_hot_labels, axis=1)
+            weights = tf.gather(class_weights_tensor, labels)
+            return images, one_hot_labels, weights
+
+        return add_sample_weights
 
     def run(self):
         # Load transform config
@@ -82,13 +101,27 @@ class TrainPipeline:
         # Get callbacks from CallbacksService
         callbacks = self.callbacks_service.get_callbacks()
 
+        train_labels = self._extract_integer_labels(train_ds)
+        # num_classes = 11  # from your info
+
+        # Step 2: Compute class weights
+        class_weights = compute_class_weight(
+            class_weight="balanced", classes=np.arange(num_classes), y=train_labels
+        )
+        print("Class weights:", class_weights)
+
+        # Create the function with class_weights baked in
+        add_sample_weights = self._make_add_sample_weights_fn(class_weights)
+
+        train_ds_with_weights = train_ds.map(add_sample_weights)
         # Train model
         logging.info("[TrainPipeline] Starting training loop...")
         model_name = model_builder_service.model_name
         logger = TrainingLoggerService(model_name)
 
         history = model.fit(
-            train_ds,
+            # train_ds,
+            train_ds_with_weights,
             validation_data=val_ds,
             epochs=self.config.epochs,
             callbacks=callbacks,

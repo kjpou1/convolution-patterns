@@ -2,10 +2,10 @@
 debug: true
 
 # Where raw images were staged (used to infer label set or for debug)
-staging_dir: ./lc_classifier/lc_staging
+staging_dir: ./artifacts/staging
 
 # Whether to preserve raw copy to artifacts/data/raw/
-preserve_raw: true
+preserve_raw: yes
 
 # Labeling strategy: 'pattern_only' or 'instrument_specific'
 label_mode: pattern_only
@@ -23,7 +23,35 @@ image_size: [224, 224]
 batch_size: 32
 
 # Number of training epochs
-epochs: 10
+epochs: 50
 
 # Cache dataset(s) in memory
 cache: yes
+
+# configs/callbacks.yaml
+
+early_stopping:
+  enabled: true
+  monitor: val_loss
+  patience: 10
+  restore_best_weights: true
+  verbose: 1
+  mode: min
+
+lr_scheduler:
+  enabled: true
+  monitor: val_loss
+  factor: 0.5
+  patience: 10
+  min_lr: 1e-6
+  verbose: 1
+  mode: min
+
+model_checkpoint:
+  enabled: true
+  filepath: best_model.keras   
+  monitor: val_loss
+  save_best_only: true
+  save_weights_only: false
+  verbose: 1
+  mode: min
