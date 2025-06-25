@@ -1,10 +1,12 @@
 import tensorflow as tf
+
 from convolution_patterns.config.config import Config
 from convolution_patterns.config.model_config import ModelConfig
 from convolution_patterns.logger_manager import LoggerManager
 from convolution_patterns.utils.layer_factory import build_layer
 
 logging = LoggerManager.get_logger(__name__)
+
 
 class ModelBuilderService:
     def __init__(self):
@@ -21,11 +23,16 @@ class ModelBuilderService:
         self.backbone_name = self.model_cfg["backbone"]
         self.input_shape = tuple(self.model_cfg["input_shape"])
         self.head_layers_cfg = self.model_cfg["custom_head"]["layers"]
+        self.freeze_backbone = self.model_cfg.get(
+            "freeze_backbone", True
+        )  # default True
 
     def build(self, num_classes: int) -> tf.keras.Model:
         logging.info(f"Building model with backbone: {self.backbone_name}")
 
         backbone = self._load_backbone()
+        backbone.trainable = not self.freeze_backbone
+
         x = backbone.output
 
         for layer_cfg in self.head_layers_cfg:
@@ -35,9 +42,11 @@ class ModelBuilderService:
 
         model.compile(
             optimizer=self._get_optimizer(),
-            loss=self.training_cfg["loss"],
-            metrics=self._get_metrics()
+            loss=self._get_loss_fn(),
+            metrics=self._get_metrics(),
         )
+
+        model.summary()
 
         logging.info("Model built and compiled.")
         return model
@@ -48,14 +57,21 @@ class ModelBuilderService:
                 include_top=False,
                 weights="imagenet",
                 input_shape=self.input_shape,
-                pooling="avg"
+                pooling=None,
             )
         elif self.backbone_name == "MobileNetV2":
             return tf.keras.applications.MobileNetV2(
                 include_top=False,
                 weights="imagenet",
                 input_shape=self.input_shape,
-                pooling="avg"
+                pooling=None,
+            )
+        elif self.backbone_name == "MobileNetV3Large":
+            return tf.keras.applications.MobileNetV3Large(
+                include_top=False,
+                weights="imagenet",
+                input_shape=self.input_shape,
+                pooling=None,
             )
         else:
             raise ValueError(f"Unsupported backbone: {self.backbone_name}")
@@ -72,8 +88,32 @@ class ModelBuilderService:
             raise ValueError(f"Unsupported optimizer: {opt_name}")
 
     def _get_metrics(self):
-        return [tf.keras.metrics.CategoricalAccuracy(name="accuracy")]
 
+        return [
+            tf.keras.metrics.CategoricalAccuracy(name="accuracy"),
+            tf.keras.metrics.Precision(name="precision"),
+            tf.keras.metrics.Recall(name="recall"),
+            tf.keras.metrics.AUC(name="auc"),
+        ]
+
+    def _get_loss_fn(self):
+        loss_cfg = self.training_cfg.get("loss", "categorical_crossentropy")
+
+        if isinstance(loss_cfg, str):
+            return tf.keras.losses.get(loss_cfg)
+
+        if isinstance(loss_cfg, dict):
+            loss_type = loss_cfg.get("type", "categorical_crossentropy")
+
+            if loss_type == "categorical_crossentropy":
+                return tf.keras.losses.CategoricalCrossentropy(
+                    from_logits=False,
+                    label_smoothing=loss_cfg.get("label_smoothing", 0.0),
+                )
+            else:
+                return tf.keras.losses.get(loss_type)
+
+        raise ValueError(f"Unsupported loss config: {loss_cfg}")
 
     @property
     def model_name(self) -> str:
