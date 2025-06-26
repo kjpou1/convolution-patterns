@@ -6,6 +6,8 @@ import pandas as pd
 import streamlit as st
 from streamlit_image_select import image_select
 
+from convolution_patterns.config import Config
+
 st.set_page_config(
     page_title="Chart Pattern Classification", page_icon="📈", layout="wide"
 )
@@ -14,8 +16,10 @@ st.set_page_config(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+config = Config()
+
 # Constants
-DATA_ROOT = "../artifacts/data/rendered"
+DATA_ROOT = config.RENDERED_IMAGES_DIR
 CLASS_LABELS = [
     "Trend_Change_Bull",  # Bullish trend reversal
     "Trend_Change_Bear",  # Bearish trend reversal
