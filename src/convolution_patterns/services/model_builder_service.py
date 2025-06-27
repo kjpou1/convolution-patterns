@@ -52,29 +52,34 @@ class ModelBuilderService:
         return model
 
     def _load_backbone(self):
-        if self.backbone_name == "EfficientNetB0":
-            return tf.keras.applications.EfficientNetB0(
-                include_top=False,
-                weights="imagenet",
-                input_shape=self.input_shape,
-                pooling=None,
-            )
-        elif self.backbone_name == "MobileNetV2":
-            return tf.keras.applications.MobileNetV2(
-                include_top=False,
-                weights="imagenet",
-                input_shape=self.input_shape,
-                pooling=None,
-            )
-        elif self.backbone_name == "MobileNetV3Large":
-            return tf.keras.applications.MobileNetV3Large(
-                include_top=False,
-                weights="imagenet",
-                input_shape=self.input_shape,
-                pooling=None,
-            )
+        kwargs = dict(
+            include_top=False,
+            weights="imagenet",
+            input_shape=self.input_shape,
+            pooling=None,
+        )
+
+        name = self.backbone_name
+        if name == "EfficientNetB0":
+            return tf.keras.applications.EfficientNetB0(**kwargs)
+        elif name == "EfficientNetB3":
+            return tf.keras.applications.EfficientNetB3(**kwargs)
+        elif name == "MobileNetV2":
+            return tf.keras.applications.MobileNetV2(**kwargs)
+        elif name == "MobileNetV3Small":
+            return tf.keras.applications.MobileNetV3Small(**kwargs)
+        elif name == "MobileNetV3Large":
+            return tf.keras.applications.MobileNetV3Large(**kwargs)
+        elif name == "ResNet50":
+            return tf.keras.applications.ResNet50(**kwargs)
+        elif name == "DenseNet121":
+            return tf.keras.applications.DenseNet121(**kwargs)
+        elif name == "InceptionV3":
+            return tf.keras.applications.InceptionV3(**kwargs)
+        elif name == "NASNetMobile":
+            return tf.keras.applications.NASNetMobile(**kwargs)
         else:
-            raise ValueError(f"Unsupported backbone: {self.backbone_name}")
+            raise ValueError(f"Unsupported backbone: {name}")
 
     def _get_optimizer(self):
         opt_name = self.training_cfg["optimizer"]
