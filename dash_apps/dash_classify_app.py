@@ -286,11 +286,14 @@ def main():
                 index=default_index,
                 key="classification",
             )
-            col_submit, col_clear = st.columns(2)
+            col_submit, col_save_next, col_clear = st.columns([1, 1, 1])
+
             with col_submit:
                 submit_button = st.form_submit_button(
                     "💾 Save Classification", type="primary"
                 )
+            with col_save_next:
+                save_next_button = st.form_submit_button("💾➡️ Save and Next")
             with col_clear:
                 clear_button = st.form_submit_button("🗑️ Clear Classification")
             if submit_button:
@@ -309,6 +312,27 @@ def main():
                     st.error(
                         "❌ Failed to update classification. Image not found in manifest."
                     )
+
+            if save_next_button:
+                updated_manifest, success = update_classification(
+                    manifest, st.session_state.selected_image, selected_label
+                )
+                if success:
+                    if save_manifest(updated_manifest, manifest_path):
+                        st.session_state.img_idx = (st.session_state.img_idx + 1) % len(
+                            sorted_images
+                        )
+                        st.success(
+                            f"✅ Classified '{st.session_state.selected_image}' as '{selected_label}' and moved to next image."
+                        )
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to save classification to file.")
+                else:
+                    st.error(
+                        "❌ Failed to update classification. Image not found in manifest."
+                    )
+
             if clear_button:
                 updated_manifest, success = update_classification(
                     manifest, st.session_state.selected_image, ""
