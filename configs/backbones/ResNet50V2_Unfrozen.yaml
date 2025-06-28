@@ -1,0 +1,28 @@
+model:
+  name: "ResNet50V2_Unfrozen"
+  backbone: ResNet50V2
+  input_shape: [224, 224, 3]
+  freeze_backbone: false
+
+  custom_head:
+    layers:
+      - type: GlobalAveragePooling2D
+      - type: BatchNormalization
+      - type: Dropout
+        rate: 0.4
+      - type: Dense
+        units: 256
+        activation: relu
+      - type: BatchNormalization
+      - type: Dropout
+        rate: 0.3
+      - type: Dense
+        units: num_classes
+        activation: softmax
+
+training:
+  optimizer: adam
+  learning_rate: 0.00002
+  loss:
+    type: categorical_crossentropy
+    label_smoothing: 0.1
