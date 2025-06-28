@@ -72,6 +72,8 @@ class ModelBuilderService:
             return tf.keras.applications.MobileNetV3Large(**kwargs)
         elif name == "ResNet50":
             return tf.keras.applications.ResNet50(**kwargs)
+        elif name == "ResNet50V2":
+            return tf.keras.applications.ResNet50V2(**kwargs)
         elif name == "DenseNet121":
             return tf.keras.applications.DenseNet121(**kwargs)
         elif name == "InceptionV3":
