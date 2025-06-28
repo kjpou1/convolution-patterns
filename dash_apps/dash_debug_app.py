@@ -1,16 +1,21 @@
-import dash
-from dash import dcc, html, Input, Output, State
-import tensorflow as tf
-import numpy as np
-from PIL import Image
-import io
 import base64
+import contextlib
+import io
+import os
+import socket
 
-from convolution_patterns.services.image_dataset_service import ImageDatasetService
-from convolution_patterns.services.transform_service import TransformService
+import dash
+import numpy as np
+import tensorflow as tf
+from dash import Input, Output, State, dcc, html
+from PIL import Image
+
 from convolution_patterns.config.config import Config
 from convolution_patterns.config.transform_config import TransformConfig
+from convolution_patterns.services.image_dataset_service import ImageDatasetService
+from convolution_patterns.services.transform_service import TransformService
 
+print(dash.__version__)
 # 🔧 Setup
 app = dash.Dash(__name__, suppress_callback_exceptions=True)
 server = app.server
@@ -51,50 +56,88 @@ def load_dataset(split, mode):
     ds, class_names = ImageDatasetService().get_dataset(split=split, print_stats=False)
     if mode == "Raw":
         return ds, class_names
-    transform_fn = TransformService(transform_config).get_pipeline(mode="train" if mode == "Augmented" else "val")
+    transform_fn = TransformService(transform_config).get_pipeline(
+        mode="train" if mode == "Augmented" else "val"
+    )
     return ds.map(lambda x, y: (transform_fn(x), y)), class_names
 
 
 # 🖼️ Layout
-app.layout = html.Div([
-    html.H2("🧪 Convolution CV Debug Viewer"),
-
-    html.Div([
-        html.Label("Split"),
-        dcc.Dropdown(splits, value="train", id="split-dropdown"),
-
-        html.Label("Mode"),
-        dcc.Dropdown(dataset_modes, value="Raw", id="mode-dropdown"),
-
-        html.Label("Batch Index"),
-        dcc.Input(id="batch-index", type="number", min=0, value=0, step=1),
-
-        html.Label("Filter by Class"),
-        dcc.Dropdown([], value=None, id="class-filter", placeholder="(optional)", clearable=True),
-
-        html.Button("Reload Config", id="reload-button", n_clicks=0),
-    ], style={"width": "25%", "display": "inline-block", "verticalAlign": "top"}),
-
-    html.Div(id="image-grid", style={"display": "flex", "flexWrap": "wrap", "gap": "10px"}),
-
-    dcc.Store(id="current-classnames-store"),
-
-    html.Div(id="modal-container", style={"display": "none"}, children=[
-        html.Div(id="modal", style={
-            "position": "fixed", "top": 0, "left": 0,
-            "width": "100%", "height": "100%",
-            "backgroundColor": "rgba(0,0,0,0.8)",
-            "zIndex": 9999,
-            "display": "flex", "justifyContent": "center", "alignItems": "center"
-        }, children=[
-            html.Div([
-                html.Img(id="modal-img", style={"maxHeight": "60vh", "maxWidth": "60vw"}),
-                html.Pre(id="modal-info", style={"color": "white", "fontSize": "14px", "marginTop": "10px"}),
-                html.Button("Close", id="close-modal", style={"marginTop": "10px"})
-            ], style={"textAlign": "center"})
-        ])
-    ])
-])
+app.layout = html.Div(
+    [
+        html.H2("🧪 Convolution CV Debug Viewer"),
+        html.Div(
+            [
+                html.Label("Split"),
+                dcc.Dropdown(splits, value="train", id="split-dropdown"),
+                html.Label("Mode"),
+                dcc.Dropdown(dataset_modes, value="Raw", id="mode-dropdown"),
+                html.Label("Batch Index"),
+                dcc.Input(id="batch-index", type="number", min=0, value=0, step=1),
+                html.Label("Filter by Class"),
+                dcc.Dropdown(
+                    [],
+                    value=None,
+                    id="class-filter",
+                    placeholder="(optional)",
+                    clearable=True,
+                ),
+                html.Button("Reload Config", id="reload-button", n_clicks=0),
+            ],
+            style={"width": "25%", "display": "inline-block", "verticalAlign": "top"},
+        ),
+        html.Div(
+            id="image-grid",
+            style={"display": "flex", "flexWrap": "wrap", "gap": "10px"},
+        ),
+        dcc.Store(id="current-classnames-store"),
+        html.Div(
+            id="modal-container",
+            style={"display": "none"},
+            children=[
+                html.Div(
+                    id="modal",
+                    style={
+                        "position": "fixed",
+                        "top": 0,
+                        "left": 0,
+                        "width": "100%",
+                        "height": "100%",
+                        "backgroundColor": "rgba(0,0,0,0.8)",
+                        "zIndex": 9999,
+                        "display": "flex",
+                        "justifyContent": "center",
+                        "alignItems": "center",
+                    },
+                    children=[
+                        html.Div(
+                            [
+                                html.Img(
+                                    id="modal-img",
+                                    style={"maxHeight": "60vh", "maxWidth": "60vw"},
+                                ),
+                                html.Pre(
+                                    id="modal-info",
+                                    style={
+                                        "color": "white",
+                                        "fontSize": "14px",
+                                        "marginTop": "10px",
+                                    },
+                                ),
+                                html.Button(
+                                    "Close",
+                                    id="close-modal",
+                                    style={"marginTop": "10px"},
+                                ),
+                            ],
+                            style={"textAlign": "center"},
+                        )
+                    ],
+                )
+            ],
+        ),
+    ]
+)
 
 
 # 🔄 Load class names
@@ -148,15 +191,18 @@ def update_image_grid(batch_idx, mode, split, class_names, class_filter):
 
         tooltip = f"{img_id} – {label_text}\nShape: {shape}\nMin: {min_val:.2f}, Max: {max_val:.2f}"
         children.append(
-            html.Div([
-                html.Img(
-                    src=f"data:image/png;base64,{encoded}",
-                    title=tooltip,
-                    id={"type": "thumbnail", "index": i},
-                    style={"height": "150px", "cursor": "pointer"}
-                ),
-                html.P(f"{img_id} – {label_text}", style={"fontSize": "12px"})
-            ], style={"textAlign": "center", "width": "180px"})
+            html.Div(
+                [
+                    html.Img(
+                        src=f"data:image/png;base64,{encoded}",
+                        title=tooltip,
+                        id={"type": "thumbnail", "index": i},
+                        style={"height": "150px", "cursor": "pointer"},
+                    ),
+                    html.P(f"{img_id} – {label_text}", style={"fontSize": "12px"}),
+                ],
+                style={"textAlign": "center", "width": "180px"},
+            )
         )
     return children
 
@@ -205,6 +251,25 @@ def hide_modal(_):
     return {"display": "none"}
 
 
+def find_free_port(start=8050, end=9000):
+    for port in range(start, end):
+        with contextlib.closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError("❌ No free port found in range.")
+
+
 # 🚀 Launch
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    host = "0.0.0.0"
+    port = 8050  # ===find_free_port()
+    ip = socket.gethostbyname(socket.gethostname())
+
+    print("\n🚀 You can now view your Dash app in your browser.\n")
+    print(f"  Local URL:   http://localhost:{port}")
+    print(f"  Network URL: http://{ip}:{port}\n")
+
+    app.run(debug=True, host=host, port=port)
