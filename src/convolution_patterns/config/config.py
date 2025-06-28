@@ -50,6 +50,7 @@ class Config(metaclass=SingletonMeta):
         self.PROCESSED_DATA_DIR = os.path.join(self.BASE_DIR, "data", "processed")
         self.METADATA_DIR = os.path.join(self.BASE_DIR, "data", "metadata")
         self.RENDERED_IMAGES_DIR = os.path.join(self.BASE_DIR, "data", "rendered")
+        self.AUGMENTED_IMAGES_DIR = os.path.join(self.BASE_DIR, "data", "augmented")
 
         self._staging_dir = os.getenv("STAGING_DIR", None)
         self._preserve_raw = str(os.getenv("PRESERVE_RAW", "true")).strip().lower() in [
@@ -137,6 +138,7 @@ class Config(metaclass=SingletonMeta):
                 self.REPORTS_DIR,
                 self.HISTORY_DIR,
                 self.RENDERED_IMAGES_DIR,
+                self.AUGMENTED_IMAGES_DIR,
             ]
         )
 
