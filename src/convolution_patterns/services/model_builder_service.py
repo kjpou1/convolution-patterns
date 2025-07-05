@@ -117,8 +117,31 @@ class ModelBuilderService:
                     from_logits=False,
                     label_smoothing=loss_cfg.get("label_smoothing", 0.0),
                 )
-            else:
-                return tf.keras.losses.get(loss_type)
+
+            if loss_type == "focal_loss":
+                alpha = loss_cfg.get("alpha", 0.25)
+                gamma = loss_cfg.get("gamma", 2.0)
+
+                def categorical_focal_loss(alpha, gamma):
+                    alpha = tf.constant(alpha, dtype=tf.float32)
+                    gamma = tf.constant(gamma, dtype=tf.float32)
+
+                    def loss(y_true, y_pred):
+                        y_pred = tf.clip_by_value(
+                            y_pred,
+                            tf.keras.backend.epsilon(),
+                            1.0 - tf.keras.backend.epsilon(),
+                        )
+                        cross_entropy = -y_true * tf.math.log(y_pred)
+                        weight = alpha * tf.math.pow(1 - y_pred, gamma)
+                        return tf.reduce_sum(weight * cross_entropy, axis=-1)
+
+                    return loss
+
+                return categorical_focal_loss(alpha, gamma)
+
+            # fallback to other built-in losses if needed
+            return tf.keras.losses.get(loss_type)
 
         raise ValueError(f"Unsupported loss config: {loss_cfg}")
 
