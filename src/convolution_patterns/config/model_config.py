@@ -1,5 +1,7 @@
-import yaml
 from typing import Any, Dict, Tuple, Union
+
+import yaml
+
 
 class ModelConfig:
     def __init__(self, config: Dict[str, Any]):
@@ -20,6 +22,14 @@ class ModelConfig:
         model = self._config.get("model")
         if not isinstance(model, dict):
             raise ValueError("'model' block must be a dictionary")
+
+        freeze_backbone = model.get("freeze_backbone")
+        if freeze_backbone is not None and not isinstance(freeze_backbone, bool):
+            raise ValueError("'freeze_backbone' must be a boolean if specified")
+
+        unfreeze_from = model.get("unfreeze_from_layer")
+        if unfreeze_from is not None and not isinstance(unfreeze_from, int):
+            raise ValueError("'unfreeze_from_layer' must be an integer if specified")
 
         for key in required_model_keys:
             if key not in model:

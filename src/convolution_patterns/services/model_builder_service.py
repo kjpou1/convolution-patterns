@@ -3,6 +3,7 @@ import tensorflow as tf
 from convolution_patterns.config.config import Config
 from convolution_patterns.config.model_config import ModelConfig
 from convolution_patterns.logger_manager import LoggerManager
+from convolution_patterns.utils.backbone_utils import apply_partial_unfreeze
 from convolution_patterns.utils.layer_factory import build_layer
 
 logging = LoggerManager.get_logger(__name__)
@@ -28,10 +29,22 @@ class ModelBuilderService:
         )  # default True
 
     def build(self, num_classes: int) -> tf.keras.Model:
+        """
+        If freeze_backbone=True: all backbone layers frozen.
+        If freeze_backbone=False and unfreeze_from_layer=None: all backbone layers trainable.
+        If freeze_backbone=False and unfreeze_from_layer is set: only layers >= unfreeze_from_layer are trainable.
+        """
         logging.info(f"Building model with backbone: {self.backbone_name}")
 
         backbone = self._load_backbone()
-        backbone.trainable = not self.freeze_backbone
+        if self.freeze_backbone:
+            backbone.trainable = False
+        else:
+            unfreeze_from = self.model_cfg.get("unfreeze_from_layer")
+            if unfreeze_from is not None:
+                apply_partial_unfreeze(backbone, unfreeze_from)
+            else:
+                backbone.trainable = True
 
         x = backbone.output
 
