@@ -129,7 +129,7 @@ def stage_classified_images(rendered_data_path, staging_base_path, instrument):
 
 def main():
     """Main function to stage classified images."""
-    rendered_data_path = "artifacts/data/rendered"
+    rendered_data_path = "artifacts/rendered"
     staging_base_path = "artifacts/staging"
     instrument = "AUD_CAD"  # Change this to process a different instrument
 

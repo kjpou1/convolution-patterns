@@ -49,7 +49,7 @@ class Config(metaclass=SingletonMeta):
         self.REPORTS_DIR = os.path.join(self.BASE_DIR, "reports")
         self.PROCESSED_DATA_DIR = os.path.join(self.BASE_DIR, "data", "processed")
         self.METADATA_DIR = os.path.join(self.BASE_DIR, "data", "metadata")
-        self.RENDERED_IMAGES_DIR = os.path.join(self.BASE_DIR, "data", "rendered")
+        self.RENDERED_IMAGES_DIR = os.path.join(self.BASE_DIR, "rendered")
         self.AUGMENTED_IMAGES_DIR = os.path.join(self.BASE_DIR, "data", "augmented")
 
         self._staging_dir = os.getenv("STAGING_DIR", None)

@@ -327,7 +327,7 @@ class ChartPatternDataProcessor:
         for i, call in enumerate(render_calls):
             instrument = call["instrument"]  # e.g., "AUD_JPY"
             date = call["date"]  # e.g., "2025-06-10"
-            output_dir = f"./data/rendered/{instrument}/{date}/"
+            output_dir = f"./rendered/{instrument}/{date}/"
             manifest_csv = f"{output_dir}manifest.csv"
 
             script_lines.extend(
