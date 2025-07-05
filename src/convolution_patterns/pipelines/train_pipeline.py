@@ -104,9 +104,10 @@ class TrainPipeline:
         train_labels = self._extract_integer_labels(train_ds)
         # num_classes = 11  # from your info
 
+        unique_labels = np.unique(train_labels)
         # Step 2: Compute class weights
         class_weights = compute_class_weight(
-            class_weight="balanced", classes=np.arange(num_classes), y=train_labels
+            class_weight="balanced", classes=unique_labels, y=train_labels
         )
         print("Class weights:", class_weights)
 

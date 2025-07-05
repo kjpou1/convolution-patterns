@@ -106,10 +106,10 @@ class Config(metaclass=SingletonMeta):
 
         # === Render-Images Config ===
         self._render_input_path = os.getenv("RENDER_INPUT_PATH", None)
-        self._render_output_dir = os.getenv(
-            "RENDER_OUTPUT_DIR", self.RENDERED_IMAGES_DIR
+        self._render_output_dir = (
+            os.getenv("RENDER_OUTPUT_DIR") or self.RENDERED_IMAGES_DIR
         )
-        self._render_manifest_path = os.getenv("RENDER_MANIFEST_PATH", "manifest.csv")
+        self._render_manifest_path = os.getenv("RENDER_MANIFEST_PATH") or "manifest.csv"
         self._render_window_sizes = [
             int(x)
             for x in os.getenv("RENDER_WINDOW_SIZES", "21,19,17,15,13,11").split(",")
@@ -123,6 +123,17 @@ class Config(metaclass=SingletonMeta):
 
         self._render_line_width = float(os.getenv("RENDER_LINE_WIDTH", "1.5"))
         self._render_image_margin = int(os.getenv("RENDER_IMAGE_MARGIN", "0"))
+
+        self._include_classes = (
+            os.getenv("INCLUDE_CLASSES", "").split(",")
+            if os.getenv("INCLUDE_CLASSES")
+            else None
+        )
+        self._exclude_classes = (
+            os.getenv("EXCLUDE_CLASSES", "").split(",")
+            if os.getenv("EXCLUDE_CLASSES")
+            else []
+        )
 
         self._ensure_directories_exist()
         Config._is_initialized = True
@@ -247,6 +258,18 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'render_image_margin' from CLI: {self._render_image_margin} → {args.image_margin}"
             )
             self.render_image_margin = args.image_margin
+
+        if _was_explicit(args, "include_classes"):
+            print(
+                f"[Config] Overriding 'include_classes' from CLI: {args.include_classes}"
+            )
+            self.include_classes = args.include_classes
+
+        if _was_explicit(args, "exclude_classes"):
+            print(
+                f"[Config] Overriding 'exclude_classes' from CLI: {args.exclude_classes}"
+            )
+            self.exclude_classes = args.exclude_classes
 
     def load_from_yaml(self, path: str):
         """
@@ -423,6 +446,28 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'render_image_margin': {self._render_image_margin} → {val}"
             )
             self.render_image_margin = val
+
+        if "include_classes" in data:
+            val = data["include_classes"]
+            if val is not None and not (
+                isinstance(val, list) and all(isinstance(x, str) for x in val)
+            ):
+                raise ValueError(
+                    "include_classes from YAML must be a list of strings or null."
+                )
+            print(
+                f"[Config] Overriding 'include_classes': {self._include_classes} → {val}"
+            )
+            self.include_classes = val
+
+        if "exclude_classes" in data:
+            val = data["exclude_classes"]
+            if not (isinstance(val, list) and all(isinstance(x, str) for x in val)):
+                raise ValueError("exclude_classes from YAML must be a list of strings.")
+            print(
+                f"[Config] Overriding 'exclude_classes': {self._exclude_classes} → {val}"
+            )
+            self.exclude_classes = val
 
     # === Existing Properties (unchanged) ===
     @property
@@ -711,6 +756,28 @@ class Config(metaclass=SingletonMeta):
         if not isinstance(value, int):
             raise ValueError("render_image_margin must be an integer.")
         self._render_image_margin = value
+
+    @property
+    def include_classes(self) -> Optional[list[str]]:
+        return self._include_classes
+
+    @include_classes.setter
+    def include_classes(self, value: Optional[list[str]]):
+        if value is not None and not (
+            isinstance(value, list) and all(isinstance(x, str) for x in value)
+        ):
+            raise ValueError("include_classes must be a list of strings or None.")
+        self._include_classes = value
+
+    @property
+    def exclude_classes(self) -> list[str]:
+        return self._exclude_classes
+
+    @exclude_classes.setter
+    def exclude_classes(self, value: list[str]):
+        if not isinstance(value, list) or not all(isinstance(x, str) for x in value):
+            raise ValueError("exclude_classes must be a list of strings.")
+        self._exclude_classes = value
 
     def _resolve_path(self, val: Optional[str]) -> Optional[str]:
         if not val:

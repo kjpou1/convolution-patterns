@@ -1,11 +1,13 @@
-import tensorflow as tf
 from pathlib import Path
 from typing import Tuple
+
+import tensorflow as tf
 
 from convolution_patterns.config.config import Config
 from convolution_patterns.logger_manager import LoggerManager
 
 logging = LoggerManager.get_logger(__name__)
+
 
 class ImageDatasetService:
     def __init__(self):
@@ -39,34 +41,60 @@ class ImageDatasetService:
         prefetch: bool = False,
         print_stats: bool = False,
     ) -> Tuple[tf.data.Dataset, list[str]]:
-        """
-        Load a dataset split without applying transforms or shuffling.
-
-        Args:
-            split (str): One of 'train', 'val', or 'test'.
-            print_stats (bool): Whether to print dataset statistics.
-            prefetch (bool): Whether to apply .prefetch(AUTOTUNE).
-
-        Returns:
-            Tuple[tf.data.Dataset, list[str]]: The dataset and list of class names.
-        """
         split_path = self.data_dir / split
         if not split_path.exists():
             raise FileNotFoundError(f"Dataset split path not found: {split_path}")
 
-        raw_dataset = tf.keras.utils.image_dataset_from_directory(
+        # Discover all class folders
+        all_class_names = sorted(
+            [entry.name for entry in split_path.iterdir() if entry.is_dir()]
+        )
+
+        # Start from "all classes"
+        final_class_names = all_class_names
+
+        # === Handle INCLUDE ===
+        include = self.config.include_classes
+        if include:
+            # Validate
+            invalid = set(include) - set(all_class_names)
+            if invalid:
+                logging.warning(f"⚠️ Invalid include_classes ignored: {sorted(invalid)}")
+            final_class_names = [c for c in include if c in all_class_names]
+            if not final_class_names:
+                raise ValueError(
+                    "No valid classes remain after applying include_classes."
+                )
+
+        # === Handle EXCLUDE ===
+        exclude = set(self.config.exclude_classes or [])
+        invalid_exclude = exclude - set(all_class_names)
+        if invalid_exclude:
+            logging.warning(
+                f"⚠️ Invalid exclude_classes ignored: {sorted(invalid_exclude)}"
+            )
+        exclude = exclude & set(all_class_names)
+        final_class_names = [c for c in final_class_names if c not in exclude]
+        if not final_class_names:
+            raise ValueError("No valid classes remain after applying exclude_classes.")
+
+        logging.info(f"✅ Using class names: {final_class_names}")
+
+        # Load dataset with the final class_names (this reindexes labels automatically)
+        dataset = tf.keras.utils.image_dataset_from_directory(
             directory=split_path,
             labels="inferred",
             label_mode="categorical",
+            class_names=final_class_names,
             image_size=self.image_size,
             batch_size=self.batch_size,
-            shuffle=False
+            shuffle=False,
         )
 
-        class_names = raw_dataset.class_names
-        dataset = raw_dataset.prefetch(tf.data.AUTOTUNE) if prefetch else raw_dataset
+        if prefetch:
+            dataset = dataset.prefetch(tf.data.AUTOTUNE)
 
         if print_stats:
-            self._print_dataset_stats(raw_dataset, class_names, split)
+            self._print_dataset_stats(dataset, final_class_names, split)
 
-        return dataset, class_names
+        return dataset, final_class_names
