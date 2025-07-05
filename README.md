@@ -24,12 +24,18 @@ This project applies deep learning to classify technical indicator-based chart p
     - [📝 Example Ingestion Config](#-example-ingestion-config)
     - [📦 Next Steps](#-next-steps)
   - [🔍 Inference Strategy](#-inference-strategy)
-  - [🎯 One-Time Local `.venv/` Setup (Optional)](#-one-time-local-venv-setup-optional)
   - [🧠 Why Use a Local `.venv/`?](#-why-use-a-local-venv)
+  - [🎯 One-Time Local `.venv/` Setup (Optional)](#-one-time-local-venv-setup-optional)
   - [🚀 Getting Started](#-getting-started)
     - [1. Clone the Repo](#1-clone-the-repo)
     - [2. Install Dependencies via Poetry](#2-install-dependencies-via-poetry)
     - [3. Activate the Environment](#3-activate-the-environment)
+  - [🍎 Apple Silicon (M1/M2/M3) GPU Acceleration](#-apple-silicon-m1m2m3-gpu-acceleration)
+    - [✅ 1. Activate the Poetry Environment](#-1-activate-the-poetry-environment)
+    - [✅ 2. Uninstall the Default TensorFlow Package](#-2-uninstall-the-default-tensorflow-package)
+    - [✅ 3. Install the Apple-Optimized TensorFlow Packages](#-3-install-the-apple-optimized-tensorflow-packages)
+    - [✅ 4. Verify GPU Availability](#-4-verify-gpu-availability)
+    - [🔄 Reverting to CPU TensorFlow](#-reverting-to-cpu-tensorflow)
   - [🖥️ CLI Usage](#️-cli-usage-1)
     - [Available Commands](#available-commands)
     - [Example Usage](#example-usage)
@@ -177,6 +183,13 @@ poetry run patterncli train --config configs/train_config.yaml
 * **Live Inference**: Use latest **128×128** window from real-time chart
 * **Offline Mining**: Apply **sliding window** detection (stride = 32 px)
 * Output: predicted pattern label + confidence score
+---
+
+## 🧠 Why Use a Local `.venv/`?
+
+* Keeps the virtual environment **self-contained** inside the repo
+* Useful for collaboration, CI/CD, and reproducibility
+* Easier to locate and activate: `source .venv/bin/activate`
 
 ---
 
@@ -196,13 +209,6 @@ This will create:
 
 > 📝 This is a one-time setup for this repo. You can still use `poetry run` or `poetry shell` as usual.
 
----
-
-## 🧠 Why Use a Local `.venv/`?
-
-* Keeps the virtual environment **self-contained** inside the repo
-* Useful for collaboration, CI/CD, and reproducibility
-* Easier to locate and activate: `source .venv/bin/activate`
 
 ---
 
@@ -211,7 +217,7 @@ This will create:
 ### 1. Clone the Repo
 
 ```bash
-git clone https://github.com/yourname/convolution-patterns.git
+git clone https://github.com/kjpou1/convolution-patterns.git
 cd convolution-patterns
 ```
 
@@ -234,6 +240,78 @@ poetry shell
 ```
 
 > Or use `poetry run` to invoke commands directly.
+
+---
+
+## 🍎 Apple Silicon (M1/M2/M3) GPU Acceleration
+
+If you are using a Mac with Apple Silicon (**M1/M2/M3 chips**), you can **enable GPU acceleration via Metal**, which will significantly improve training speed.
+
+By default, Poetry installs the standard TensorFlow (CPU) wheel. To switch to the optimized build, follow these steps **after running `poetry install`**:
+
+### ✅ 1. Activate the Poetry Environment
+
+```bash
+source "$(poetry env info --path)/bin/activate"
+```
+
+or, if you prefer:
+
+```bash
+poetry shell
+```
+
+### ✅ 2. Uninstall the Default TensorFlow Package
+
+```bash
+pip uninstall tensorflow
+```
+
+Confirm when prompted.
+
+### ✅ 3. Install the Apple-Optimized TensorFlow Packages
+
+```bash
+pip install tensorflow-macos tensorflow-metal
+```
+
+### ✅ 4. Verify GPU Availability
+
+Run this command to confirm that TensorFlow sees your Metal GPU:
+
+```bash
+python -c "import tensorflow as tf; print('TensorFlow version:', tf.__version__); print('GPU devices:', tf.config.list_physical_devices('GPU'))"
+```
+
+Expected output:
+
+```
+TensorFlow version: 2.16.2
+GPU devices: [PhysicalDevice(name='/physical_device:GPU:0', device_type='GPU')]
+```
+
+✅ If you see your GPU listed, your environment is ready for accelerated training.
+
+> 💡 **Note**
+>
+> * You do **not** need to modify `pyproject.toml` or re-lock dependencies.
+> * If you later re-run `poetry install`, you will need to repeat steps 2–3 to reinstall the Metal build.
+> * Larger batch sizes can improve GPU utilization on Apple Silicon.
+
+---
+
+### 🔄 Reverting to CPU TensorFlow
+
+If you want to switch back to the CPU version later:
+
+```bash
+pip uninstall tensorflow-macos tensorflow-metal
+pip install tensorflow
+```
+
+---
+
+✅ That’s it—your Mac is ready to fly 🚀
 
 ---
 
