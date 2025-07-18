@@ -4455,7 +4455,10 @@ enabler = ["pytest-enabler (>=2.2)"]
 test = ["big-O", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more_itertools", "pytest (>=6,!=8.1.*)", "pytest-ignore-flaky"]
 type = ["pytest-mypy"]
 
+[extras]
+apple-silicon = []
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "255aefb3b9e2f271b7e3d24dbcadf41b6b9940a01456e331094dd8f50ddc2d24"
+content-hash = "b7064faaa1d0707c9e865bf62f7da625eaf59b4c14a03b6472f3eb2338484753"
