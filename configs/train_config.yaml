@@ -10,8 +10,13 @@ preserve_raw: yes
 # Labeling strategy: 'pattern_only' or 'instrument_specific'
 label_mode: pattern_only
 
+include_classes: null
+exclude_classes:
+  - No_Pattern
+
+
 # Train/val/test split ratios
-split_ratios: [80, 10, 10]
+split_ratios: [60, 20, 20]
 
 # Random seed for reproducibility
 random_seed: 1337
@@ -23,7 +28,7 @@ image_size: [224, 224]
 batch_size: 32
 
 # Number of training epochs
-epochs: 50
+epochs: 400
 
 # Cache dataset(s) in memory
 cache: yes
@@ -42,16 +47,18 @@ lr_scheduler:
   enabled: true
   monitor: val_loss
   factor: 0.5
-  patience: 10
-  min_lr: 1e-6
+  patience: 5
+  min_lr: 1e-7
   verbose: 1
   mode: min
 
 model_checkpoint:
   enabled: true
   filepath: best_model.keras   
-  monitor: val_loss
+  # monitor: val_loss
+  # mode: min
+  monitor: val_accuracy
+  mode: max
   save_best_only: true
   save_weights_only: false
   verbose: 1
-  mode: min
