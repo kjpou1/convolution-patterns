@@ -65,6 +65,10 @@ class Config(metaclass=SingletonMeta):
         self._deterministic = os.getenv("DETERMINISTIC", "true").lower() == "true"
         self._random_seed = int(os.getenv("RANDOM_SEED", "42"))
 
+        self._collapse_labels = False
+        self._label_remap = {}
+        self._vertical_flip_map = {}
+
         img_vals = os.getenv("IMAGE_SIZE", "224,224").split(",")
         if len(img_vals) != 2:
             raise ValueError(
@@ -306,6 +310,31 @@ class Config(metaclass=SingletonMeta):
                 f"[Config] Overriding 'label_mode': {self._label_mode} → {data['label_mode']}"
             )
             self.label_mode = data["label_mode"]
+
+        if "collapse_labels" in data:
+            val = data["collapse_labels"]
+            if not isinstance(val, bool):
+                raise ValueError("collapse_labels must be a boolean.")
+            print(
+                f"[Config] Overriding 'collapse_labels': {self._collapse_labels} → {val}"
+            )
+            self._collapse_labels = val
+
+        if "remap" in data:
+            val = data["remap"]
+            if not isinstance(val, dict):
+                raise ValueError("remap must be a dictionary.")
+            print(f"[Config] Overriding 'label_remap': {self._label_remap} → {val}")
+            self._label_remap = val
+
+        if "vertical_flip_map" in data:
+            val = data["vertical_flip_map"]
+            if not isinstance(val, dict):
+                raise ValueError("vertical_flip_map must be a dictionary.")
+            print(
+                f"[Config] Overriding 'vertical_flip_map': {self._vertical_flip_map} → {val}"
+            )
+            self._vertical_flip_map = val
 
         if "split_ratios" in data:
             print(
@@ -555,6 +584,36 @@ class Config(metaclass=SingletonMeta):
         if not isinstance(value, int):
             raise ValueError("random_seed must be an integer.")
         self._random_seed = value
+
+    @property
+    def collapse_labels(self) -> bool:
+        return self._collapse_labels
+
+    @collapse_labels.setter
+    def collapse_labels(self, value: bool):
+        if not isinstance(value, bool):
+            raise ValueError("collapse_labels must be a boolean.")
+        self._collapse_labels = value
+
+    @property
+    def label_remap(self) -> dict:
+        return self._label_remap
+
+    @label_remap.setter
+    def label_remap(self, value: dict):
+        if not isinstance(value, dict):
+            raise ValueError("label_remap must be a dictionary.")
+        self._label_remap = value
+
+    @property
+    def vertical_flip_map(self) -> dict:
+        return self._vertical_flip_map
+
+    @vertical_flip_map.setter
+    def vertical_flip_map(self, value: dict):
+        if not isinstance(value, dict):
+            raise ValueError("vertical_flip_map must be a dictionary.")
+        self._vertical_flip_map = value
 
     @property
     def image_size(self) -> tuple[int, int]:

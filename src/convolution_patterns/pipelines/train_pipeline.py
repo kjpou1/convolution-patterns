@@ -102,7 +102,6 @@ class TrainPipeline:
         callbacks = self.callbacks_service.get_callbacks()
 
         train_labels = self._extract_integer_labels(train_ds)
-        # num_classes = 11  # from your info
 
         unique_labels = np.unique(train_labels)
         # Step 2: Compute class weights

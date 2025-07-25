@@ -1,10 +1,3 @@
-staging_dir: ./artifacts/staging
-preserve_raw: no
-label_mode: pattern_only
-split_ratios: [70, 15, 15]
-random_seed: 123
-debug: true
-
 collapse_labels: true
 
 remap:

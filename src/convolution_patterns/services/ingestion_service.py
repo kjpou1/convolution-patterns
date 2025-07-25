@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 import sys
+from pathlib import Path
 from typing import Dict, List
 
 import pandas as pd
@@ -36,18 +37,50 @@ class IngestionService:
 
     def copy_raw_images(self):
         """
-        Copies raw images from staging_dir to RAW_DATA_DIR as a snapshot.
+        Copies images from staging to raw, applying label collapsing if enabled.
         """
         try:
-            if not os.path.exists(self.staging_dir):
+            collapse = self.config.collapse_labels
+            remap = self.config.label_remap
+
+            staging_root = Path(self.staging_dir)
+            raw_root = Path(self.raw_data_dir)
+
+            if not staging_root.exists():
                 raise FileNotFoundError(
-                    f"Staging directory not found or not set: {self.config.staging_dir}"
+                    f"Staging directory not found: {self.staging_dir}"
                 )
 
-            if os.path.exists(self.raw_data_dir):
-                shutil.rmtree(self.raw_data_dir)
-            shutil.copytree(self.staging_dir, self.raw_data_dir)
-            logging.info(f"Copied raw images to: {self.raw_data_dir}")
+            if raw_root.exists():
+                if not self.config.preserve_raw:
+                    shutil.rmtree(raw_root)
+                else:
+                    logging.info("Preserve raw enabled. Skipping copy.")
+                    return
+
+            for instrument_dir in staging_root.iterdir():
+                if not instrument_dir.is_dir():
+                    continue
+                for pattern_dir in instrument_dir.iterdir():
+                    if not pattern_dir.is_dir():
+                        continue
+
+                    original_label = pattern_dir.name
+                    collapsed_label = (
+                        remap.get(original_label, original_label)
+                        if collapse
+                        else original_label
+                    )
+                    dest_dir = raw_root / instrument_dir.name / collapsed_label
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+
+                    for img_file in pattern_dir.glob("*.png"):
+                        shutil.copy2(img_file, dest_dir / img_file.name)
+
+            logging.info(
+                f"✅ Copied raw images to: {self.raw_data_dir} (collapse_labels={collapse})"
+            )
+
         except Exception as e:
             raise CustomException(e, sys) from e
 
@@ -110,11 +143,17 @@ class IngestionService:
                                 if self.label_mode == "pattern_only"
                                 else f"{instrument}__{pattern_type}"
                             )
+                            collapsed_label = (
+                                self.config.label_remap.get(label, label)
+                                if self.config.collapse_labels
+                                else label
+                            )
                             records.append(
                                 {
                                     "instrument": instrument,
                                     "pattern_type": pattern_type,
-                                    "label": label,
+                                    "original_label": label,  # Save original label for metadata
+                                    "label": collapsed_label,  # This is what gets used in folder path
                                     "filename": filename,
                                     "source_path": os.path.join(pattern_path, filename),
                                 }

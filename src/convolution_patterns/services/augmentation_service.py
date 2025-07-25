@@ -23,20 +23,6 @@ class BackgroundMode(Enum):
 
 class AugmentationService:
 
-    vertical_flip_label_map = {
-        "CT_Uptrend": "CT_Downtrend",
-        "CT_Downtrend": "CT_Uptrend",
-        "PB_Uptrend": "PB_Downtrend",
-        "PB_Downtrend": "PB_Uptrend",
-        "Uptrend_Convergence": "Downtrend_Convergence",
-        "Downtrend_Convergence": "Uptrend_Convergence",
-        "Uptrend_No_Convergence": "Downtrend_No_Convergence",
-        "Downtrend_No_Convergence": "Uptrend_No_Convergence",
-        "Trend_Change_Bull": "Trend_Change_Bear",
-        "Trend_Change_Bear": "Trend_Change_Bull",
-        # "No_Pattern": "No_Pattern",  # no change
-    }
-
     def __init__(
         self, class_names: List[str], image_size: tuple[int, int] = (224, 224)
     ):
@@ -50,6 +36,7 @@ class AugmentationService:
         self.image_size = image_size
         self.name_to_index = {name: idx for idx, name in enumerate(class_names)}
         self.index_to_name = {idx: name for idx, name in enumerate(class_names)}
+        self.vertical_flip_label_map = self.config.vertical_flip_map
 
     # === Augmentations ===
 
